@@ -336,7 +336,8 @@ const CHALLENGE_TYPES = {
 async function challenge({ provider, recent = [], recentTypes = [] }) {
   const started = Date.now();
   const fresh = Object.keys(CHALLENGE_TYPES).filter((t) => !recentTypes.slice(-2).includes(t));
-  const type = fresh[Math.floor(Math.random() * fresh.length)];
+  // the first challenge of a session is always the brittle test (which shatters); random after that
+  const type = recentTypes.length ? fresh[Math.floor(Math.random() * fresh.length)] : 'which_shatters';
   const text = `Recent challenges (avoid repeating them): ${recent.length ? recent.slice(-6).join('; ') : 'none'}.
 
 Create a new challenge with question_type "${type}": ${CHALLENGE_TYPES[type]}. Every object in groups must also be in the checklist and vice versa, one group per object.`;
@@ -349,6 +350,10 @@ Create a new challenge with question_type "${type}": ${CHALLENGE_TYPES[type]}. E
   }
   if (!out?.call) out = { ...(await generate({ provider, system: CHALLENGE_SYSTEM, text, tools: [CHALLENGE_TOOL], maxTokens: 700, timeoutMs: 18000, temperature: 1 })), ms: Date.now() - started };
   if (!out.call) throw new Error('Gemma could not make a challenge. Try again.');
+  if (!recentTypes.length && out.call.args && out.call.args.question_type !== type) {
+    out.call.args.question_type = type; // the opening brittle test must stay one, whatever Gemma chose
+    out.call.args.question = 'Which object shatters?';
+  }
   console.log(`[challenge] ${out.provider} ${out.ms} ms -> ${JSON.stringify(out.call.args)}`);
   return out;
 }
