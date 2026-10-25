@@ -21,6 +21,7 @@ Built during **Hacktoberfest x MOSS Hack Day Udupi** (MIT Manipal, 25 October 20
 
 | Name | GitHub |
 |---|---|
+| Abhiraj Mandal | [@NyteZoid](https://github.com/NyteZoid) |
 | Prithu Pandey | [@prithu9454](https://github.com/prithu9454) |
 | Kanishk Rai | [@syncwhale](https://github.com/syncwhale) |
 | Vikas Agarwal | [@polymorphicblob](https://github.com/polymorphicblob) |
