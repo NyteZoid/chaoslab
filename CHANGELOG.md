@@ -6,6 +6,7 @@ All notable changes to ChaosLab. Newest first.
 
 - New apparatus from the NLM question bank: block pushed or pulled by a force at any angle with friction (normal force N = mg − F sin θ), or sliding to a stop; two blocks in contact pushed together. Textbook predictions match the simulation exactly in tests (e.g. 0.77, 0.11, 2.98, 3.92, 1.55 m/s²).
 - Applied forces drawn as labelled arrows; friction accounts for an angled pull lifting the block.
+- Gemma 4 maps these problems to the new apparatus (tested: pushed crate, contact blocks, angled pull with friction).
 - Live acceleration is measured by a least-squares fit of position over time, accurate for slow and fast systems alike.
 
 ## 0.9.2 (2026-10-25): No more accidental panning

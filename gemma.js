@@ -165,8 +165,8 @@ const APPARATUS = {
   properties: {
     type: {
       type: 'string',
-      enum: ['spring_mass', 'pendulum', 'atwood', 'table_pulley', 'two_pulley_table', 'incline_pulley', 'movable_pulley', 'pulley_system', 'collision_1d', 'projectile', 'incline_block'],
-      description: 'spring_mass = block on a spring (k, mass, rest, stretch, damping, mu, orientation 1 vertical / 0 horizontal); pendulum = bob on a string (length, mass, angle in degrees, double 1 for a double pendulum); atwood = two masses over one fixed pulley (m1, m2, height); table_pulley = block m1 on a table with friction mu, string over a pulley at the edge to hanging m2; two_pulley_table = 2 pulleys, 3 blocks: m1 hangs left, m2 on the table (mu), m3 hangs right; incline_pulley = block m1 on an incline (angle, mu) tied over a pulley at the top to hanging m2; movable_pulley = load on a movable pulley (load) lifted by a hanging effort mass (effort), 2 pulleys; pulley_system = block and tackle with 2 to 6 pulleys (pulleys, load, effort), mechanical advantage = pulleys; collision_1d = two blocks on a frictionless track (m1, m2, u1, u2 with right positive, e coefficient of restitution); projectile = launch (speed, angle in degrees, height of launch); incline_block = block on an incline (angle, mu, mass)',
+      // no enum: Gemini rejects the tool schema as too complex if it grows; the types are listed here
+      description: 'one of: spring_mass = block on a spring (k, mass, rest, stretch, damping, mu, orientation 1 vertical / 0 horizontal); pendulum = bob on a string (length, mass, angle in degrees, double 1 for a double pendulum); atwood = two masses over one fixed pulley (m1, m2, height); force_block = one block pushed or pulled by a force at an angle with friction, or sliding to a stop (mass, effort = the force F in N, angle, mu, speed); contact_blocks = two touching blocks pushed together by a force (m1 pushed, m2 front, effort = the force F in N, mu); table_pulley = block m1 on a table with friction mu, string over a pulley at the edge to hanging m2; two_pulley_table = 2 pulleys, 3 blocks: m1 hangs left, m2 on the table (mu), m3 hangs right; incline_pulley = block m1 on an incline (angle, mu) tied over a pulley at the top to hanging m2; movable_pulley = load on a movable pulley (load) lifted by a hanging effort mass (effort), 2 pulleys; pulley_system = block and tackle with 2 to 6 pulleys (pulleys, load, effort), mechanical advantage = pulleys; collision_1d = two blocks on a frictionless track (m1, m2, u1, u2 with right positive, e coefficient of restitution); projectile = launch (speed, angle in degrees, height of launch); incline_block = block on an incline (angle, mu, mass)',
     },
     values: {
       type: 'object',
@@ -374,7 +374,7 @@ async function build({ prompt, scene, image, provider, history = [], outcome = n
 
 // Gemma often puts the numbers straight on the apparatus instead of in "values", or uses a
 // near-miss name; accept both so the problem's numbers are never lost.
-const APPARATUS_ALIASES = { double_pendulum: ['pendulum', { double: 1 }], simple_pendulum: ['pendulum', {}], spring: ['spring_mass', {}], spring_block: ['spring_mass', {}], atwood_machine: ['atwood', {}], collision: ['collision_1d', {}], projectile_motion: ['projectile', {}], incline: ['incline_block', {}], block_and_tackle: ['pulley_system', {}], two_pulley: ['two_pulley_table', {}] };
+const APPARATUS_ALIASES = { double_pendulum: ['pendulum', { double: 1 }], simple_pendulum: ['pendulum', {}], spring: ['spring_mass', {}], spring_block: ['spring_mass', {}], atwood_machine: ['atwood', {}], collision: ['collision_1d', {}], projectile_motion: ['projectile', {}], incline: ['incline_block', {}], block_and_tackle: ['pulley_system', {}], applied_force: ['force_block', {}], contact: ['contact_blocks', {}], two_pulley: ['two_pulley_table', {}] };
 function normaliseApparatus(args) {
   const a = args && args.apparatus;
   if (!a || typeof a !== 'object') return;
@@ -382,6 +382,8 @@ function normaliseApparatus(args) {
   for (const [k, v] of Object.entries(a)) if (k !== 'type' && k !== 'values' && typeof v === 'number') values[k] = v;
   let type = a.type;
   if (APPARATUS_ALIASES[type]) { Object.assign(values, APPARATUS_ALIASES[type][1]); type = APPARATUS_ALIASES[type][0]; }
+  // the schema has no 'force' key (see APPARATUS), so the applied force arrives as effort
+  if ((type === 'force_block' || type === 'contact_blocks') && values.effort !== undefined && values.force === undefined) { values.force = values.effort; delete values.effort; }
   args.apparatus = { type, values };
 }
 
