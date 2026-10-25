@@ -120,7 +120,7 @@ public/
 - [Ollama](https://ollama.com/) (MIT), optional, runs Gemma 4 E4B locally.
 - [Inter](https://fonts.google.com/specimen/Inter) and [Space Grotesk](https://fonts.google.com/specimen/Space+Grotesk) fonts via Google Fonts (SIL Open Font License).
 - Node.js built-in modules only on the server; no other npm dependencies.
-- No datasets are used.
+- No datasets are used
 
 ## AI coding tools used
 
