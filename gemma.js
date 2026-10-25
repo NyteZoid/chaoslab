@@ -108,6 +108,7 @@ const STRUCTURE = {
     name: { type: 'string', description: 'id; the ramps of a ramp_path are called <name>1 (top), <name>2, ...' },
     side: SIDE,
     levels: { type: 'integer', description: 'ramp_path: number of ramps, 2 to 7' },
+    complexity: { type: 'integer', description: 'ramp_path: 1 simple, 2 adds holes the ball drops through, 3 most irregular. Use 3 for "complex" or "harder" mazes.' },
     steps: { type: 'integer', description: 'staircase: number of steps, 2 to 10' },
     angle: { type: 'number', description: 'ramp_path: slope of each ramp in degrees (5 to 45, default 15). Use exactly the angle the user gives.' },
     top_height: { type: 'number', description: 'height of the top in metres' },
@@ -251,7 +252,7 @@ Vocabulary:
 
 Changing the current apparatus: when a current apparatus is given and the request changes it ("add 2 more pulleys", "make m2 heavier", "steeper", "stiffer spring", "double the length"), call build_scene with apparatus giving the type and only the values that change; ChaosLab keeps every other current value. "2 pulleys and 3 blocks" is two_pulley_table. Pulley counts: atwood has 1 pulley, movable_pulley has 2, pulley_system has "pulleys". Adding N pulleys to any pulley setup means pulley_system with pulleys = current count + N (2 to 6), load = the heavier or lifted mass, effort = the hanging mass.
 
-Mechanics problems (Class 11, JEE): if the request is a spring-block, pendulum, Atwood machine, block on a table or incline tied over a pulley, movable pulley, 1D collision, projectile or block on an incline, use apparatus with the numbers from the problem, in SI units, and leave groups empty. If the problem says g = 10 m/s², set world gravity 1.02.
+Mechanics problems (Class 11, JEE): ALWAYS put the problem's numbers inside apparatus.values (for example {"type":"atwood","values":{"m1":5,"m2":3}}). If the request is a spring-block, pendulum, Atwood machine, block on a table or incline tied over a pulley, movable pulley, 1D collision, projectile or block on an incline, use apparatus with the numbers from the problem, in SI units, and leave groups empty. If the problem says g = 10 m/s², set world gravity 1.02.
 
 Examples (arguments for build_scene):
 "a 2 kg block on a spring of stiffness 200 N/m is pulled 10 cm and released" -> {"title":"Spring-block SHM","note":"...","checklist":["spring_mass k 200, m 2, stretch 0.1"],"apparatus":{"type":"spring_mass","values":{"k":200,"mass":2,"stretch":0.1,"orientation":0}}}
@@ -270,6 +271,7 @@ Rules:
 - Start with checklist: one line per ramp and per kind of object the user asked for. Then make exactly one ramp or group per line.
 - Include every object the user asked for and nothing else. One group per distinct kind of object; never repeat a group.
 - Use exactly the angles, heights, speeds and counts the user gives. To change an existing ramp's angle or length, use edit_scene update with its id.
+- For a more complex, harder or different maze, use more levels (6 or 7) and complexity 3. Each build gives a new layout.
 - Anything with several connected ramps (path, track, maze, zigzag, marble run) is ONE ramp_path structure, never separate ramps.
 - Give every group a side unless it is placed on or at a ramp. Things that move toward each other start on opposite sides.
 - Use build_scene for a new experiment. Use edit_scene when the request refers to the current scene ("it", "the ball", "didn't", "make it", "more", "again", "faster"): the current scene, the previous requests and what happened in the last run are given, so fix the actual problem.
@@ -366,8 +368,22 @@ async function build({ prompt, scene, image, provider, history = [], outcome = n
     out = { ...out, retried: true, ms: Date.now() - started };
   }
   if (!out.call) throw new Error('Gemma did not return a scene. Try rephrasing the request.');
+  normaliseApparatus(out.call.args);
   console.log(`[build] ${out.provider} ${out.ms} ms "${prompt}" -> ${out.call.name} ${JSON.stringify(out.call.args)}`);
   return out;
+}
+
+// Gemma often puts the numbers straight on the apparatus instead of in "values", or uses a
+// near-miss name; accept both so the problem's numbers are never lost.
+const APPARATUS_ALIASES = { double_pendulum: ['pendulum', { double: 1 }], simple_pendulum: ['pendulum', {}], spring: ['spring_mass', {}], spring_block: ['spring_mass', {}], atwood_machine: ['atwood', {}], collision: ['collision_1d', {}], projectile_motion: ['projectile', {}], incline: ['incline_block', {}], block_and_tackle: ['pulley_system', {}], two_pulley: ['two_pulley_table', {}] };
+function normaliseApparatus(args) {
+  const a = args && args.apparatus;
+  if (!a || typeof a !== 'object') return;
+  const values = { ...(a.values || {}) };
+  for (const [k, v] of Object.entries(a)) if (k !== 'type' && k !== 'values' && typeof v === 'number') values[k] = v;
+  let type = a.type;
+  if (APPARATUS_ALIASES[type]) { Object.assign(values, APPARATUS_ALIASES[type][1]); type = APPARATUS_ALIASES[type][0]; }
+  args.apparatus = { type, values };
 }
 
 // A short, readable version of the scene so edits can refer to ids and ramp names.

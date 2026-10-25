@@ -2,6 +2,13 @@
 
 All notable changes to ChaosLab. Newest first.
 
+## 0.9.0 (2026-10-25): Varied mazes, easier building, tested on JEE problems
+
+- Mazes differ on every build (seeded layouts) and have a complexity setting: uneven ramp lengths and slopes, and holes the ball drops through. A maze where the ball would get stuck is rebuilt automatically; 36/36 random mazes tested reach the bottom.
+- Strings, springs and ropes: the scene pauses while you build and takes the current layout as the start; an empty second click hangs a new bob or block; Enter ends a rope with a new block.
+- Simulator self-test (public/selftest.js): 200 random JEE-style problems across all apparatus, 192 match the textbook answer.
+- Gemma: apparatus numbers accepted whether or not they are inside "values"; aliases such as double_pendulum understood. Tested on 40 JEE-style wordings.
+
 ## 0.8.1 (2026-10-25): Pulley discs, two-pulley three-block apparatus
 
 - New Pulley tool: place stand-alone pulley discs anywhere, drag them in Grab mode (ropes re-route), right-click to delete. The Pulley rope tool snaps onto discs and wraps the rope around both sides of each wheel.

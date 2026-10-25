@@ -81,22 +81,41 @@ function rampPath(s) {
   const span = clamp(drop / Math.tan(slope * DEG), 1.6, Math.min(num(s.width, 10), 10));
   const [x0, x1] = zoneSpan(s, span);
   const startRight = s.first_direction !== 'down_left';
+  // Variety: a seed shapes each maze (a new one every build unless a seed is given).
+  // complexity 1 = uneven ramp lengths, 2 = also holes the ball drops through, 3 = more of both.
+  const complexity = clamp(Math.round(num(s.complexity, 1)), 1, 3);
+  let seed = Math.round(num(s.seed, Math.random() * 1e6)) || 1;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const jitter = span * (0.12 + 0.12 * complexity);
+  const holeChance = complexity === 1 ? 0 : complexity === 2 ? 0.35 : 0.6;
   const pieces = [];
+  let entry = null; // x where the ball arrives from the level above
   for (let i = 0; i < levels; i++) {
     const right = (i % 2 === 0) === startRight;
     const hi = top - i * (drop + gap);
     const lo = hi - drop;
-    const left = x0 - (i > 0 && right ? reach : 0);
-    const rightEnd = x1 + (i > 0 && !right ? reach : 0);
-    pieces.push(right
-      ? plank(left, hi, rightEnd, lo, { name: `${name}${i + 1}` })
-      : plank(left, lo, rightEnd, hi, { name: `${name}${i + 1}` }));
+    // the end the ball arrives at reaches past the previous exit; the far end varies with the seed
+    const start = entry === null ? (right ? x0 : x1) : entry + (right ? -reach : reach);
+    const exit = right ? x1 - rnd() * jitter : x0 + rnd() * jitter;
+    const [ax, ay, bx, by] = right ? [start, hi, exit, lo] : [exit, lo, start, hi];
+    const label = { name: `${name}${i + 1}` };
+    if (i > 0 && i < levels - 1 && rnd() < holeChance && Math.abs(bx - ax) > 1.6) {
+      // a hole: the ball drops through it onto the ramp below, skipping the rest of this one
+      const f = 0.35 + rnd() * 0.3, w = 0.45 / Math.abs(bx - ax);
+      const mx = (t) => ax + (bx - ax) * t, my = (t) => ay + (by - ay) * t;
+      pieces.push(plank(ax, ay, mx(f - w / 2), my(f - w / 2), right ? label : {}));
+      pieces.push(plank(mx(f + w / 2), my(f + w / 2), bx, by, right ? {} : label));
+    } else {
+      pieces.push(plank(ax, ay, bx, by, label));
+    }
     if (i < levels - 1) {
       // bumper on the outside of the turn, from just above the next ramp to above this ramp's low end
-      const wx = right ? x1 + reach + 0.2 : x0 - reach - 0.2;
+      const wx = right ? exit + reach + 0.2 : exit - reach - 0.2;
       pieces.push(plank(wx, lo - gap - 0.05, wx, lo + 0.7));
     }
+    entry = exit;
   }
+  pieces[0].name ||= `${name}1`;
   return pieces;
 }
 

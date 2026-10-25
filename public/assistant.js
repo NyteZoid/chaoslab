@@ -106,7 +106,15 @@ export class Assistant {
         image: this.snapshot(), // Gemma sees the current scene, so "make it faster" has a referent
       });
       const label = this.apply(out.call, prompt);
-      const check = this.checkScene(out.call.args);
+      let check = this.checkScene(out.call.args);
+      // a maze where the ball gets stuck is rebuilt with a new layout (up to 4 more tries)
+      for (let tries = 0; check && !check.ok && tries < 4; tries++) {
+        for (const st of [...(out.call.args.structures || []), ...(out.call.args.add_structures || [])]) {
+          if (st.type === "ramp_path") st.seed = Math.round(Math.random() * 1e6);
+        }
+        this.apply(out.call, prompt);
+        check = this.checkScene(out.call.args);
+      }
       this.history.push({ prompt, result: `${out.call.name}: ${label}. ${out.call.args.note || ''}`.trim() });
       this.renderResult({
         kind: 'build',
