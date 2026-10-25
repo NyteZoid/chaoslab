@@ -16,6 +16,17 @@ Built during **Hacktoberfest x MOSS Hack Day Udupi** (MIT Manipal, 25 October 20
 | **13 Class 11 apparatus**, every parameter adjustable: springs, pendulums, Atwood, pulleys on tables and inclines, block and tackle, forces at an angle with friction, contact blocks, collisions, projectiles. | **Build your own mechanics.** Pulleys, ropes, springs and strings in any scene, draggable, with live coordinates. |
 | **Predict, then run.** Gemma designs a question where intuition fails; the physics decides the answer. | **Works offline.** Gemma 4 E4B on-device through Ollama, with automatic fallback when the cloud is busy. |
 
+## Try these prompts
+
+Type any of these into **Ask Gemma 4** and press **Build scene**:
+
+- Two masses 5 kg and 3 kg are connected by a light inextensible string passing over a smooth pulley. Find the acceleration and tension.
+- A 10 kg block rests on a rough table (coefficient of friction 0.2) and is tied over a pulley to a 3 kg hanging mass. Will it move?
+- Two blocks of 4 kg and 7 kg are in contact on a smooth floor. A 17 N force pushes the 4 kg block. Find the contact force.
+- A block and tackle with 4 pulleys lifts a 40 kg load using a 12 kg effort mass. Then: *add 2 more pulleys*
+- Race an ice cube and a rubber block down two 30° ramps
+- make a complex maze for a steel ball
+
 ## Screenshots
 
 | | |
