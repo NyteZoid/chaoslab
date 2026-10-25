@@ -2,6 +2,13 @@
 
 All notable changes to ChaosLab. Newest first.
 
+## 0.8.0 (2026-10-25): Build-your-own mechanics, full screen, cleaner layout
+
+- New tools usable in any scene, including an empty one: Spring (set stiffness, natural length, damping), String (pendulums) and Pulley rope over as many pulleys as you click.
+- Pulleys and spring/string anchors can be dragged in Grab mode; the coordinates of the cursor and of whatever is under it (pulley, anchor, object, ramp) are shown live.
+- View bar on the canvas: play/pause, rerun, zoom in/out (also mouse wheel), reset view, grid spacing (1 m, 0.5 m, 0.25 m, 2 m, off) and full screen; drag empty space to pan. Keyboard: + − 0 G F.
+- Runs moved into a History drawer opened from the header; World and Next object settings moved under the canvas.
+
 ## 0.7.1 (2026-10-25): Gemma remembers the apparatus; pulley systems
 
 - The current apparatus and its settings are sent with every request, so follow-ups such as "add 2 more pulleys" or "make the load 15 kg" change it instead of rebuilding from scratch. Values not mentioned are kept.

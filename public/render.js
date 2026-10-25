@@ -40,6 +40,9 @@ export class Renderer {
     this.shake = { amp: 0, until: 0 };
     this.flashUntil = 0;
     this.backdrop = makeBackdrop();
+    this.view = { zoom: 1, cx: WIDTH / 2, cy: HEIGHT / 2 }; // camera: centre of view in world px
+    this.gridStep = 1;                                       // metres between grid lines (0 = off)
+    this.marker = null;                                      // highlighted point (e.g. a pulley under the cursor)
 
     lab.on('reset', () => { this.trails.clear(); this.bursts = []; this.dust = []; });
     lab.on('step', () => this._recordTrails());
@@ -102,15 +105,86 @@ export class Renderer {
     }
   }
 
+  // ---------- camera ----------
+
+  // canvas pixel -> world pixel (the units Matter uses)
+  toWorld(p) {
+    const v = this.view;
+    return { x: (p.x - WIDTH / 2) / v.zoom + v.cx, y: (p.y - HEIGHT / 2) / v.zoom + v.cy };
+  }
+
+  setZoom(zoom, around = null) {
+    const v = this.view;
+    const z = Math.min(6, Math.max(0.5, zoom));
+    if (around) { // keep the point under the cursor fixed
+      const w = this.toWorld(around);
+      v.cx = w.x - (around.x - WIDTH / 2) / z;
+      v.cy = w.y - (around.y - HEIGHT / 2) / z;
+    }
+    v.zoom = z;
+    if (z === 1 && !around) { v.cx = WIDTH / 2; v.cy = HEIGHT / 2; }
+    this._syncMouse();
+  }
+
+  pan(dx, dy) {
+    this.view.cx -= dx / this.view.zoom;
+    this.view.cy -= dy / this.view.zoom;
+    this._syncMouse();
+  }
+
+  resetView() {
+    this.view = { zoom: 1, cx: WIDTH / 2, cy: HEIGHT / 2 };
+    this._syncMouse();
+  }
+
+  // Matter's mouse (used for grabbing) must see the same world coordinates we draw.
+  _syncMouse() {
+    const v = this.view, m = this.lab.mouse;
+    Matter.Mouse.setScale(m, { x: 1 / v.zoom, y: 1 / v.zoom });
+    Matter.Mouse.setOffset(m, { x: v.cx - WIDTH / (2 * v.zoom), y: v.cy - HEIGHT / (2 * v.zoom) });
+  }
+
+  _drawGrid() {
+    if (!this.gridStep) return;
+    const { ctx } = this;
+    const step = this.gridStep * PX_PER_M;
+    const back = FLOOR_PX + FLOOR_OFF.y;
+    ctx.lineWidth = 1 / this.view.zoom;
+    for (const major of [false, true]) {
+      ctx.strokeStyle = major ? 'rgba(239, 68, 68, 0.16)' : GRID;
+      ctx.beginPath();
+      for (let x = 0; x <= WIDTH + 0.1; x += step) {
+        const isMajor = Math.abs(x / PX_PER_M - Math.round(x / PX_PER_M)) < 1e-6 && this.gridStep < 1;
+        if (isMajor !== major) continue;
+        ctx.moveTo(x, 0); ctx.lineTo(x, back);
+      }
+      for (let y = FLOOR_PX; y >= 0; y -= step) {
+        const isMajor = Math.abs((FLOOR_PX - y) / PX_PER_M - Math.round((FLOOR_PX - y) / PX_PER_M)) < 1e-6 && this.gridStep < 1;
+        if (isMajor !== major) continue;
+        ctx.moveTo(0, y); ctx.lineTo(WIDTH, y);
+      }
+      ctx.stroke();
+    }
+  }
+
   draw(now) {
     const { ctx } = this;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
     ctx.save();
     if (this.effects && now < this.shake.until) {
       const k = (this.shake.until - now) / 180;
       ctx.translate((Math.random() - 0.5) * 2 * this.shake.amp * k, (Math.random() - 0.5) * 2 * this.shake.amp * k);
     }
+    // camera
+    const v = this.view;
+    ctx.translate(WIDTH / 2, HEIGHT / 2);
+    ctx.scale(v.zoom, v.zoom);
+    ctx.translate(-v.cx, -v.cy);
 
     ctx.drawImage(this.backdrop, 0, 0);
+    this._drawGrid();
     this._drawFloor();
 
     const bodies = this.lab.allBodies().filter((b) => !b.plugin.wall && b.plugin.specId);
@@ -130,6 +204,14 @@ export class Renderer {
     }
 
     this._drawGhost();
+    if (this.marker) {
+      ctx.strokeStyle = ACCENT;
+      ctx.lineWidth = 2 / v.zoom;
+      ctx.beginPath();
+      ctx.arc(this.marker.x, this.marker.y, 12 / v.zoom, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    if (this.pending) drawPending(ctx, this.pending, this.hover);
     if (this.effects) { this._drawBursts(now); this._drawDust(now); }
     ctx.restore();
 
@@ -320,6 +402,23 @@ function drawSolid(ctx, body) {
     ctx.restore();
     label(ctx, body, Math.sqrt(body.area) / 2, base);
   }
+}
+
+// A link being built with a tool: the points clicked so far, then a line to the cursor.
+function drawPending(ctx, pending, hover) {
+  const pts = [...pending.points];
+  if (hover) pts.push(hover);
+  ctx.save();
+  ctx.strokeStyle = 'rgba(239, 68, 68, 0.8)';
+  ctx.setLineDash([6, 4]);
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = ACCENT;
+  for (const p of pending.points) { ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill(); }
+  ctx.restore();
 }
 
 // ---------- springs, strings and pulleys ----------
@@ -588,15 +687,7 @@ function makeBackdrop() {
     ctx.fill();
   }
 
-  // the metre grid on the back wall
-  ctx.strokeStyle = GRID;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  const back = FLOOR_PX + FLOOR_OFF.y;
-  for (let x = FLOOR_OFF.x % PX_PER_M; x <= WIDTH; x += PX_PER_M) { ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, back); }
-  for (let y = back; y >= 0; y -= PX_PER_M) { ctx.moveTo(0, y + 0.5); ctx.lineTo(WIDTH, y + 0.5); }
-  ctx.stroke();
-  return c;
+  return c; // the grid is drawn live (its spacing can change)
 }
 
 // ---------- colour helpers ----------

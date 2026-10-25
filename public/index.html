@@ -28,6 +28,15 @@
     <symbol id="i-rerun" viewBox="0 0 16 16"><path d="M2.75 8a5.25 5.25 0 1 0 1.6-3.77M2.75 2.5v3h3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-pause" viewBox="0 0 16 16"><path d="M5.5 3.5v9M10.5 3.5v9" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></symbol>
     <symbol id="i-play" viewBox="0 0 16 16"><path d="M5 3.25v9.5L12.5 8z" fill="currentColor"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 16 16"><path d="M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-fit" viewBox="0 0 16 16"><path d="M2.75 6V2.75H6M10 2.75h3.25V6M13.25 10v3.25H10M6 13.25H2.75V10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-full" viewBox="0 0 16 16"><path d="M2.75 6V2.75H6M10 2.75h3.25V6M13.25 10v3.25H10M6 13.25H2.75V10M6 6l-3-3M10 6l3-3M10 10l3 3M6 10l-3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 16 16"><path d="M2.5 2.5h11v11h-11zM6.17 2.5v11M9.83 2.5v11M2.5 6.17h11M2.5 9.83h11" fill="none" stroke="currentColor" stroke-width="1.2"/></symbol>
+    <symbol id="i-spring" viewBox="0 0 16 16"><path d="M2 8h2l1-3 2 6 2-6 2 6 1-3h2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-string" viewBox="0 0 16 16"><path d="M8 2v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="12" r="2.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 2h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <symbol id="i-pulley" viewBox="0 0 16 16"><circle cx="8" cy="5" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 5v8M11 5v6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <symbol id="i-history" viewBox="0 0 16 16"><path d="M2.75 8a5.25 5.25 0 1 0 1.6-3.77M2.75 2.5v3h3M8 5v3l2 1.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   </svg>
 
   <header class="topbar">
@@ -47,6 +56,7 @@
           <svg class="icon"><use href="#i-rerun"/></svg><span>Rerun</span>
         </button>
         <button id="clear" class="btn btn-ghost" type="button">Clear</button>
+        <button id="historyBtn" class="btn btn-ghost" type="button" aria-expanded="false" aria-controls="historyDrawer"><svg class="icon"><use href="#i-history"/></svg>History <span class="count" id="historyCount">0</span></button>
       </div>
     </div>
   </header>
@@ -56,6 +66,20 @@
       <div class="canvas-wrap">
         <canvas id="world" aria-label="Physics simulation canvas"></canvas>
         <div class="run-badge" id="runBadge"></div>
+        <div class="viewbar" role="toolbar" aria-label="View">
+          <button class="vb" type="button" id="vbPlay" title="Pause / play (Space)"><svg class="icon"><use href="#i-pause"/></svg></button>
+          <button class="vb" type="button" id="vbRerun" title="Rerun (R)"><svg class="icon"><use href="#i-rerun"/></svg></button>
+          <span class="vb-sep"></span>
+          <button class="vb" type="button" id="vbZoomOut" title="Zoom out (-)"><svg class="icon"><use href="#i-minus"/></svg></button>
+          <span class="vb-label" id="vbZoom">100%</span>
+          <button class="vb" type="button" id="vbZoomIn" title="Zoom in (+)"><svg class="icon"><use href="#i-plus"/></svg></button>
+          <button class="vb" type="button" id="vbFit" title="Reset view (0)"><svg class="icon"><use href="#i-fit"/></svg></button>
+          <span class="vb-sep"></span>
+          <button class="vb vb-text" type="button" id="vbGrid" title="Grid spacing (G)"><svg class="icon"><use href="#i-grid"/></svg><span id="vbGridLabel">1 m</span></button>
+          <span class="vb-sep"></span>
+          <button class="vb" type="button" id="vbFull" title="Full screen (F)"><svg class="icon"><use href="#i-full"/></svg></button>
+        </div>
+        <div class="coords" id="coords"></div>
       </div>
 
       <div class="toolbar">
@@ -63,6 +87,9 @@
           <button class="seg active" type="button" role="radio" aria-checked="true" data-tool="ball"><svg class="icon"><use href="#i-ball"/></svg>Ball</button>
           <button class="seg" type="button" role="radio" aria-checked="false" data-tool="box"><svg class="icon"><use href="#i-box"/></svg>Box</button>
           <button class="seg" type="button" role="radio" aria-checked="false" data-tool="plank"><svg class="icon"><use href="#i-ramp"/></svg>Ramp</button>
+          <button class="seg" type="button" role="radio" aria-checked="false" data-tool="spring" title="Click an object or empty space, then a second one"><svg class="icon"><use href="#i-spring"/></svg>Spring</button>
+          <button class="seg" type="button" role="radio" aria-checked="false" data-tool="string" title="Click a support point, then an object (pendulum)"><svg class="icon"><use href="#i-string"/></svg>String</button>
+          <button class="seg" type="button" role="radio" aria-checked="false" data-tool="rope" title="Click an object, then empty space for each pulley, then the other object"><svg class="icon"><use href="#i-pulley"/></svg>Pulley rope</button>
           <button class="seg" type="button" role="radio" aria-checked="false" data-tool="grab"><svg class="icon"><use href="#i-grab"/></svg>Grab</button>
         </div>
         <div class="switches">
@@ -73,15 +100,21 @@
           <label class="switch"><input type="checkbox" id="sound" checked><span></span>Sound</label>
         </div>
       </div>
-      <p class="hint">Click the canvas to drop the selected object. Click a ramp to change its exact angle or length. Right-click an object to delete it. Space pauses, R reruns.</p>
+      <p class="hint" id="toolHint">Click the canvas to drop the selected object. Click a ramp to change its exact angle or length. Right-click an object to delete it. Space pauses, R reruns.</p>
 
-      <section class="card runs-card">
-        <div class="card-head">
-          <h2 class="overline">Runs</h2>
-          <span class="meta">Select a run to compare against it</span>
-        </div>
-        <ol class="runs" id="runs"></ol>
-      </section>
+      <div class="below">
+        <section class="card">
+          <h2 class="overline">World</h2>
+          <div class="sliders" id="worldSliders"></div>
+        </section>
+
+        <section class="card">
+          <h2 class="overline" id="nextTitle">Next object</h2>
+          <div class="materials" id="materials" role="radiogroup" aria-label="Material" data-hide="plank spring string rope"></div>
+          <label class="switch breakable-switch" data-hide="plank spring string rope"><input type="checkbox" id="breakable"><span></span>Breakable: shatters when hit harder than its threshold</label>
+          <div class="sliders" id="spawnSliders"></div>
+        </section>
+      </div>
     </section>
 
     <aside class="panel" aria-label="Controls">
@@ -130,11 +163,6 @@
         <button class="btn btn-ghost btn-sm btn-danger" type="button" id="rampDelete">Delete ramp</button>
       </section>
 
-      <section class="card">
-        <h2 class="overline">World</h2>
-        <div class="sliders" id="worldSliders"></div>
-      </section>
-
       <section class="card" aria-labelledby="telemetry-title">
         <div class="card-head">
           <h2 id="telemetry-title" class="overline">Telemetry</h2>
@@ -149,14 +177,17 @@
         <dl class="stats" id="stats"></dl>
       </section>
 
-      <section class="card">
-        <h2 class="overline">Next object</h2>
-        <div class="materials" id="materials" role="radiogroup" aria-label="Material" data-hide="plank"></div>
-        <label class="switch breakable-switch" data-hide="plank"><input type="checkbox" id="breakable"><span></span>Breakable: shatters when hit harder than its threshold</label>
-        <div class="sliders" id="spawnSliders"></div>
-      </section>
     </aside>
   </main>
+
+  <aside class="drawer" id="historyDrawer" aria-label="Run history" hidden>
+    <div class="drawer-head">
+      <h2 class="overline">History</h2>
+      <button class="btn btn-ghost btn-sm" type="button" id="historyClose">Close</button>
+    </div>
+    <p class="meta">Select a run to compare the chart against it.</p>
+    <ol class="runs" id="runs"></ol>
+  </aside>
 
   <footer class="container footer">
     <p>Built for Hacktoberfest Hack Day Udupi × MOSS at MIT Manipal, October 2026.</p>

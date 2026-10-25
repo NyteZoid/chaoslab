@@ -38,11 +38,14 @@ const energyFromSlider = (v) => { const e = E_MIN * (E_MAX / E_MIN) ** (v / 100)
 const sliderFromEnergy = (e) => (100 * Math.log(e / E_MIN)) / Math.log(E_MAX / E_MIN);
 
 const SPAWN_SLIDERS = [
-  { key: 'size', label: 'Size (radius / half-width)', min: 0.08, max: 0.6, step: 0.01, unit: 'm', value: 0.2, hide: 'plank' },
-  { key: 'mass', label: 'Mass', min: 0, max: 100, step: 0.5, unit: 'kg', value: 50, map: massFromSlider, hide: 'plank' },
-  { key: 'vx', label: 'Launch speed →', min: -15, max: 15, step: 0.5, unit: 'm/s', value: 0, hide: 'plank' },
-  { key: 'vy', label: 'Launch speed ↑', min: -15, max: 15, step: 0.5, unit: 'm/s', value: 0, hide: 'plank' },
+  { key: 'size', label: 'Size (radius / half-width)', min: 0.08, max: 0.6, step: 0.01, unit: 'm', value: 0.2, hide: 'plank spring string rope' },
+  { key: 'mass', label: 'Mass', min: 0, max: 100, step: 0.5, unit: 'kg', value: 50, map: massFromSlider, hide: 'plank spring string rope' },
+  { key: 'vx', label: 'Launch speed →', min: -15, max: 15, step: 0.5, unit: 'm/s', value: 0, hide: 'plank spring string rope' },
+  { key: 'vy', label: 'Launch speed ↑', min: -15, max: 15, step: 0.5, unit: 'm/s', value: 0, hide: 'plank spring string rope' },
   { key: 'breakEnergy', label: 'Breaks above', min: 0, max: 100, step: 0.5, unit: 'J', value: 50, map: energyFromSlider, breaks: true },
+  { key: 'springK', label: 'Spring stiffness k', min: 5, max: 2000, step: 5, unit: 'N/m', value: 60, only: 'spring', exact: true },
+  { key: 'springRest', label: 'Natural length (0 = as drawn)', min: 0, max: 5, step: 0.05, unit: 'm', value: 0, only: 'spring', exact: true },
+  { key: 'springDamping', label: 'Damping', min: 0, max: 20, step: 0.1, unit: 'N·s/m', value: 0, only: 'spring' },
   { key: 'angle', label: 'Ramp angle (+ rises to the right)', min: -80, max: 80, step: 0.5, unit: '°', value: -20, only: 'plank', exact: true },
   { key: 'length', label: 'Ramp length', min: 0.5, max: 11, step: 0.1, unit: 'm', value: 3, only: 'plank', exact: true },
 ];
@@ -131,7 +134,7 @@ function syncAutoMass() {
 }
 
 function syncBreakControls() {
-  const show = spawn.breakable && tool !== 'plank' && tool !== 'grab';
+  const show = spawn.breakable && !['plank', 'grab', 'spring', 'string', 'rope'].includes(tool);
   document.querySelectorAll('[data-breaks]').forEach((el) => { el.hidden = !show; });
 }
 
@@ -183,18 +186,34 @@ function syncWorldSliders() {
 
 // ---------- tools & canvas input ----------
 
+const LINK_TOOLS = new Set(['spring', 'string', 'rope']);
+const TOOL_HINTS = {
+  ball: 'Click the canvas to drop a ball. Click a ramp to set its exact angle. Right-click an object to delete it.',
+  box: 'Click the canvas to drop a box. Click a ramp to set its exact angle. Right-click an object to delete it.',
+  plank: 'Click the canvas to place a ramp with the angle and length set below.',
+  spring: 'Spring: click an object or empty space (a fixed anchor), then a second object or point. Esc cancels.',
+  string: 'String: click a support point (or object), then the object to hang from it. Makes a pendulum. Esc cancels.',
+  rope: 'Pulley rope: click the first object, then empty space for each pulley (as many as you like), then the second object. Esc cancels.',
+  grab: 'Grab: drag objects, pulleys and anchors. Drag empty space to pan when zoomed in. Scroll to zoom.',
+};
+let pending = null; // a spring, string or rope being built: { type, refs, points }
+
 function setTool(next) {
   tool = next;
+  pending = null;
+  renderer.pending = null;
   document.querySelectorAll('.seg[data-tool]').forEach((b) => {
     const on = b.dataset.tool === tool;
     b.classList.toggle('active', on);
     b.setAttribute('aria-checked', on);
   });
-  document.querySelectorAll('[data-only]').forEach((el) => { el.hidden = el.dataset.only !== tool; });
-  document.querySelectorAll('[data-hide]').forEach((el) => { el.hidden = el.dataset.hide === tool; });
+  document.querySelectorAll('[data-only]').forEach((el) => { el.hidden = !el.dataset.only.split(' ').includes(tool); });
+  document.querySelectorAll('[data-hide]').forEach((el) => { el.hidden = el.dataset.hide.split(' ').includes(tool); });
   lab.setGrabEnabled(tool === 'grab');
-  renderer.spawnPreview = tool === 'grab' ? null : () => ({ shape: tool, ...spawnSpec() });
+  renderer.spawnPreview = tool === 'grab' || LINK_TOOLS.has(tool) ? null : () => ({ shape: tool, ...spawnSpec() });
   canvas.style.cursor = tool === 'grab' ? 'grab' : 'crosshair';
+  $('toolHint').textContent = TOOL_HINTS[tool];
+  $('nextTitle').textContent = { spring: 'Spring settings', string: 'String', rope: 'Pulley rope', grab: 'Next object' }[tool] || 'Next object';
   syncAutoMass();
   syncBreakControls();
 }
@@ -213,28 +232,168 @@ function canvasPoint(e) {
   const r = canvas.getBoundingClientRect();
   return { x: ((e.clientX - r.left) / r.width) * canvas.width, y: ((e.clientY - r.top) / r.height) * canvas.height };
 }
+const worldPoint = (e) => renderer.toWorld(canvasPoint(e));
+const round2 = (n) => Math.round(n * 100) / 100;
+
+// A click while building a link: a loose object becomes an attached end, anything else a fixed point.
+function linkRefAt(w) {
+  const id = lab.specAtPoint(w.x, w.y);
+  const spec = id && lab.spec(id);
+  if (spec && !spec.static) return { ref: { body: id }, at: lab.liveBodies().find((b) => b.id === id) };
+  const m = toM(w.x, w.y);
+  return { ref: { x: round2(m.x), y: round2(Math.max(0, m.y)) }, at: m };
+}
+
+function linkClick(w) {
+  const { ref } = linkRefAt(w);
+  pending ||= { type: tool, refs: [], points: [] };
+  pending.refs.push(ref);
+  pending.points.push(ref.body != null ? (() => { const b = lab.allBodies().find((x) => x.plugin.specId === ref.body); return { x: b.position.x, y: b.position.y }; })() : { ...w });
+  const refs = pending.refs;
+  const dist = () => { const [a, b] = pending.points; return Math.hypot(b.x - a.x, b.y - a.y) / 100; };
+  if (tool === 'spring' && refs.length === 2) {
+    if (refs.every((r) => r.body == null)) return cancelLink('A spring needs at least one object at an end.');
+    const rest = spawn.springRest > 0 ? spawn.springRest : round2(dist());
+    lab.addLink({ type: 'spring', a: refs[0], b: refs[1], k: spawn.springK, rest, damping: spawn.springDamping });
+    pending = null;
+  } else if (tool === 'string' && refs.length === 2) {
+    if (refs.every((r) => r.body == null)) return cancelLink('A string needs an object at one end.');
+    lab.addLink({ type: 'rod', a: refs[0], b: refs[1], length: round2(dist()) });
+    pending = null;
+  } else if (tool === 'rope' && refs.length >= 3 && ref.body != null) {
+    if (refs[0].body == null && refs.length < 3) return;
+    lab.addLink({ type: 'rope', points: refs });
+    pending = null;
+  } else if (tool === 'rope' && refs.length === 1 && ref.body == null) {
+    // starting on a fixed point is fine: it is a ceiling support
+  }
+  renderer.pending = pending;
+}
+
+function cancelLink(message) {
+  pending = null;
+  renderer.pending = null;
+  if (message) $('toolHint').textContent = message;
+}
+
+// Dragging: pulleys/anchors in grab mode, or panning the view over empty space.
+let drag = null;
 
 canvas.addEventListener('pointerdown', (e) => {
-  if (e.button !== 0) return;
   const p = canvasPoint(e);
+  const w = renderer.toWorld(p);
+  if (e.button === 1 || (e.button === 0 && e.shiftKey)) { drag = { pan: true, last: p }; e.preventDefault(); return; }
+  if (e.button !== 0) return;
+  if (LINK_TOOLS.has(tool)) { linkClick(w); return; }
+  if (tool === 'grab') {
+    const point = lab.linkPointAt(w, 14 / renderer.view.zoom);
+    if (point) { drag = { point }; canvas.setPointerCapture(e.pointerId); return; }
+  }
   // clicking a ramp or wall selects it for editing instead of dropping something on it
-  const hitId = lab.specAtPoint(p.x, p.y);
+  const hitId = lab.specAtPoint(w.x, w.y);
   const hit = hitId && lab.spec(hitId);
   if (hit && hit.static) { selectFixed(hit.id); return; }
   selectFixed(null);
-  if (tool === 'grab') return;
-  const m = toM(p.x, p.y);
+  if (tool === 'grab') {
+    if (!hitId) { drag = { pan: true, last: p }; canvas.setPointerCapture(e.pointerId); }
+    return;
+  }
+  const m = toM(w.x, w.y);
   if (m.y <= 0) return;
   lab.addBody({ shape: tool, x: m.x, y: m.y, ...spawnSpec() });
 });
-canvas.addEventListener('pointermove', (e) => { renderer.hover = e.pointerType === 'mouse' ? canvasPoint(e) : null; });
-canvas.addEventListener('pointerleave', () => { renderer.hover = null; });
+
+canvas.addEventListener('pointermove', (e) => {
+  const p = canvasPoint(e);
+  const w = renderer.toWorld(p);
+  if (drag?.pan) { renderer.pan(p.x - drag.last.x, p.y - drag.last.y); drag.last = p; return; }
+  if (drag?.point) {
+    const m = toM(w.x, w.y);
+    lab.moveLinkPoint(drag.point.link, drag.point.slot, m.x, m.y);
+  }
+  renderer.hover = e.pointerType === 'mouse' ? w : null;
+  showCoords(w);
+});
+canvas.addEventListener('pointerup', () => {
+  if (drag?.point) lab.emit('change', { t: lab.time, reason: `moved ${drag.point.kind.toLowerCase()}` });
+  drag = null;
+});
+canvas.addEventListener('pointerleave', () => { renderer.hover = null; renderer.marker = null; $('coords').textContent = ''; });
 canvas.addEventListener('contextmenu', (e) => {
   e.preventDefault();
-  const p = canvasPoint(e);
-  const id = lab.specAtPoint(p.x, p.y);
+  const w = worldPoint(e);
+  const id = lab.specAtPoint(w.x, w.y);
   if (id) lab.removeBody(id);
 });
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  renderer.setZoom(renderer.view.zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15), canvasPoint(e));
+  syncViewbar();
+}, { passive: false });
+
+// Live coordinates of the cursor, and of the pulley, anchor or object under it.
+function showCoords(w) {
+  const m = toM(w.x, w.y);
+  const point = lab.linkPointAt(w, 14 / renderer.view.zoom);
+  renderer.marker = point ? point.px : null;
+  let text = `x ${fmt(round2(m.x))} m · y ${fmt(round2(m.y))} m`;
+  if (point) {
+    text = `<b>${point.kind}</b> at x ${fmt(point.x)} m, y ${fmt(point.y)} m${tool === 'grab' ? ' · drag to move' : ''}`;
+  } else {
+    const id = lab.specAtPoint(w.x, w.y);
+    const spec = id && lab.spec(id);
+    if (spec) {
+      const live = lab.liveBodies().find((b) => b.id === id);
+      const at = live || spec;
+      const name = spec.shape === 'plank' ? `Ramp ${spec.name || '#' + spec.id} (${fmt(Math.abs(spec.angle))}°)` : `${spec.material} ${spec.shape} #${spec.id}`;
+      text = `<b>${name}</b> at x ${fmt(round2(at.x))} m, y ${fmt(round2(at.y))} m`;
+    }
+  }
+  $('coords').innerHTML = text;
+}
+
+// ---------- view bar (also in full screen) ----------
+
+const GRID_STEPS = [1, 0.5, 0.25, 2, 0];
+function syncViewbar() {
+  $('vbZoom').textContent = `${Math.round(renderer.view.zoom * 100)}%`;
+  $('vbGridLabel').textContent = renderer.gridStep ? `${renderer.gridStep} m` : 'Off';
+  $('vbPlay').querySelector('use').setAttribute('href', lab.paused ? '#i-play' : '#i-pause');
+}
+const zoomBy = (f) => { renderer.setZoom(renderer.view.zoom * f, { x: canvas.width / 2, y: canvas.height / 2 }); syncViewbar(); };
+const cycleGrid = () => { renderer.gridStep = GRID_STEPS[(GRID_STEPS.indexOf(renderer.gridStep) + 1) % GRID_STEPS.length]; syncViewbar(); };
+const toggleFull = () => {
+  const wrap = canvas.parentElement;
+  if (document.fullscreenElement) document.exitFullscreen();
+  else wrap.requestFullscreen?.();
+};
+$('vbPlay').addEventListener('click', () => lab.setPaused(!lab.paused));
+$('vbRerun').addEventListener('click', () => lab.rerun('Rerun'));
+$('vbZoomIn').addEventListener('click', () => zoomBy(1.25));
+$('vbZoomOut').addEventListener('click', () => zoomBy(0.8));
+$('vbFit').addEventListener('click', () => { renderer.resetView(); syncViewbar(); });
+$('vbGrid').addEventListener('click', cycleGrid);
+$('vbFull').addEventListener('click', toggleFull);
+lab.on('pause', syncViewbar);
+document.addEventListener('keydown', (e) => {
+  if (e.target.matches('input, textarea, select')) return;
+  if (e.key === '+' || e.key === '=') zoomBy(1.25);
+  else if (e.key === '-' || e.key === '_') zoomBy(0.8);
+  else if (e.key === '0') { renderer.resetView(); syncViewbar(); }
+  else if (e.key === 'g' || e.key === 'G') cycleGrid();
+  else if (e.key === 'f' || e.key === 'F') toggleFull();
+  else if (e.key === 'Escape' && pending) cancelLink(TOOL_HINTS[tool]);
+});
+
+// ---------- history drawer ----------
+
+function toggleHistory(open = $('historyDrawer').hidden) {
+  $('historyDrawer').hidden = !open;
+  $('historyBtn').setAttribute('aria-expanded', open);
+  if (open) renderRuns();
+}
+$('historyBtn').addEventListener('click', () => toggleHistory());
+$('historyClose').addEventListener('click', () => toggleHistory(false));
 
 // ---------- selected ramp ----------
 
@@ -369,6 +528,8 @@ function renderStats() {
 
 function renderRuns() {
   lastRunsRender = performance.now();
+  $("historyCount").textContent = telemetry.runs.length;
+  if ($("historyDrawer").hidden && telemetry.runs.length) return; // closed: just keep the count fresh
   const base = baseline();
   $('runs').innerHTML = telemetry.runs.slice().reverse().map((run) => {
     const sum = telemetry.summarize(run);
@@ -496,6 +657,7 @@ assistant.apparatus = apparatus; // Gemma can load apparatus too
 
 setMaterial(DEFAULT_MATERIAL);
 setTool('ball');
+syncViewbar();
 const startPreset = new URLSearchParams(location.search).get('preset'); // e.g. ?preset=tower
 $('preset').value = PRESETS[startPreset] ? startPreset : 'drop';
 loadPreset($('preset').value);

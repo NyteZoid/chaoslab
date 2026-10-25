@@ -192,6 +192,47 @@ export class Lab {
 
   spec(id) { return this.bodies.find((s) => s.id === id) || null; }
 
+  // ---- springs, strings and ropes added by hand ----
+
+  addLink(link) {
+    this.links.push(link);
+    this.linker.build();
+    const what = link.type === 'rope' ? `pulley rope over ${link.points.length - 2} pulley${link.points.length === 3 ? '' : 's'}` : link.type === 'rod' ? 'string' : `spring k = ${fmt(link.k)} N/m`;
+    this.emit('change', { t: this.time, reason: `added ${what}` });
+  }
+
+  // Fixed points of links (supports, pulleys, spring anchors) with where they sit, in world px.
+  linkPoints() {
+    const out = [];
+    this.links.forEach((l, i) => {
+      const slots = l.type === 'rope' ? l.points.map((p, j) => [j, p]) : [['a', l.a], ['b', l.b]];
+      for (const [slot, p] of slots) {
+        if (!p || p.body != null) continue;
+        const kind = l.type === 'rope' ? (slot === 0 || slot === l.points.length - 1 ? 'Rope support' : 'Pulley') : l.type === 'rod' ? 'String support' : 'Spring anchor';
+        out.push({ link: i, slot, kind, x: p.x, y: p.y, px: { x: p.x * PX_PER_M, y: this.toPxY(p.y) } });
+      }
+    });
+    return out;
+  }
+
+  linkPointAt(px, radius = 14) {
+    let best = null, bestD = radius;
+    for (const p of this.linkPoints()) {
+      const d = Math.hypot(p.px.x - px.x, p.px.y - px.y);
+      if (d < bestD) { best = p; bestD = d; }
+    }
+    return best;
+  }
+
+  // Drag a pulley or anchor to a new place (metres). Ropes re-take their length from the new layout.
+  moveLinkPoint(index, slot, x, y) {
+    const l = this.links[index];
+    if (!l) return;
+    const p = { x: Math.round(clamp(x, 0, WORLD_W) * 100) / 100, y: Math.round(clamp(y, 0, WORLD_H) * 100) / 100 };
+    if (l.type === 'rope') { l.points[slot] = p; delete l.length; } else l[slot] = p;
+    this.linker.build();
+  }
+
   // Change a fixed piece (ramp, wall) in place without restarting the run, e.g. while dragging
   // its angle slider. Returns the updated spec.
   patchFixed(id, patch) {
