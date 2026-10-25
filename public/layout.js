@@ -48,6 +48,109 @@ function rampFrame(p) {
   return { high, low, down, normal };
 }
 
+// ---------- structures ----------
+// Multi-part builds whose pieces must line up exactly. Each returns plank specs (fixed pieces);
+// ramps get names so groups can be placed on them (e.g. "path1" is the top ramp of "path").
+
+const plank = (x1, y1, x2, y2, extra = {}) => {
+  const length = Math.hypot(x2 - x1, y2 - y1);
+  const angle = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI; // positive rises to the right
+  return { shape: 'plank', x: round((x1 + x2) / 2), y: round((y1 + y2) / 2), length: round(length), size: PLANK_T, angle: round(clampAngle(angle)), ...extra };
+};
+const clampAngle = (a) => (a > 90 ? a - 180 : a < -90 ? a + 180 : a);
+
+function zoneSpan(s, width) {
+  const cx = s.x != null ? num(s.x, 6) : SIDES[s.side] ?? 6;
+  const half = Math.min(width, WORLD_W - 1.4) / 2;
+  const c = clamp(cx, half + 0.7, WORLD_W - half - 0.7);
+  return [c - half, c + half];
+}
+
+// Zigzag marble run: ramps alternate direction, each one catching the ball from the one above.
+// A short bumper wall at every turn stops the ball overshooting and drops it onto the next ramp.
+function rampPath(s) {
+  const name = s.name || 'path';
+  const levels = clamp(Math.round(num(s.levels, 4)), 2, 7);
+  const top = clamp(num(s.top_height, 5.8), 1.5, WORLD_H - 0.5);
+  const ball = clamp(num(s.ball_size, 0.15), 0.08, 0.3);
+  const gap = 2 * ball + 0.22;  // vertical gap between a ramp's low end and the next: room for the ball to drop through
+  const reach = 0.5;            // how far each lower ramp extends past the end of the one above
+  const drop = Math.max(0.15, (top - 0.35 - (levels - 1) * gap) / levels);
+  // keep the slope steep enough to roll briskly: narrow the path rather than flatten the ramps
+  const slope = clamp(num(s.angle, 15), 8, 35);
+  const span = clamp(drop / Math.tan(slope * DEG), 1.6, Math.min(num(s.width, 10), 10));
+  const [x0, x1] = zoneSpan(s, span);
+  const startRight = s.first_direction !== 'down_left';
+  const pieces = [];
+  for (let i = 0; i < levels; i++) {
+    const right = (i % 2 === 0) === startRight;
+    const hi = top - i * (drop + gap);
+    const lo = hi - drop;
+    const left = x0 - (i > 0 && right ? reach : 0);
+    const rightEnd = x1 + (i > 0 && !right ? reach : 0);
+    pieces.push(right
+      ? plank(left, hi, rightEnd, lo, { name: `${name}${i + 1}` })
+      : plank(left, lo, rightEnd, hi, { name: `${name}${i + 1}` }));
+    if (i < levels - 1) {
+      // bumper on the outside of the turn, from just above the next ramp to above this ramp's low end
+      const wx = right ? x1 + reach + 0.2 : x0 - reach - 0.2;
+      pieces.push(plank(wx, lo - gap - 0.05, wx, lo + 0.7));
+    }
+  }
+  return pieces;
+}
+
+// Stairs: flat steps going down, each starting where the last one ends.
+function staircase(s) {
+  const steps = clamp(Math.round(num(s.steps, 5)), 2, 10);
+  const top = clamp(num(s.top_height, 3), 0.6, WORLD_H - 0.6);
+  const rise = top / steps;
+  const [x0, x1] = zoneSpan(s, clamp(num(s.width, 6), 2, 10));
+  const run = (x1 - x0) / steps;
+  const right = s.direction !== 'down_left';
+  const pieces = [];
+  for (let i = 0; i < steps; i++) {
+    const y = top - i * rise;
+    const a = right ? x0 + i * run : x1 - (i + 1) * run;
+    pieces.push(plank(a, y, a + run, y, i === 0 ? { name: `${s.name || 'stairs'}1` } : {}));
+  }
+  return pieces;
+}
+
+function wall(s) {
+  const x = clamp(s.x != null ? num(s.x, 6) : SIDES[s.side] ?? 6, 0.3, WORLD_W - 0.3);
+  const h = clamp(num(s.height, 1.5), 0.3, WORLD_H - 0.2);
+  const base = clamp(num(s.base_height, 0), 0, WORLD_H - h);
+  return [plank(x, base, x, base + h)];
+}
+
+// Open-topped box that catches objects.
+function cup(s) {
+  const w = clamp(num(s.width, 1.6), 0.6, 4);
+  const h = clamp(num(s.height, 0.8), 0.3, 2);
+  const [x0, x1] = zoneSpan(s, w);
+  const base = clamp(num(s.base_height, 0), 0, WORLD_H - h);
+  return [plank(x0, base + 0.08, x1, base + 0.08), plank(x0, base, x0, base + h), plank(x1, base, x1, base + h)];
+}
+
+// V-shaped funnel with an opening at the bottom.
+function funnel(s) {
+  const w = clamp(num(s.width, 3), 1.2, 8);
+  const opening = clamp(num(s.opening, 0.6), 0.3, w - 0.4);
+  const y = clamp(num(s.height, 3), 0.8, WORLD_H - 0.8);
+  const [x0, x1] = zoneSpan(s, w);
+  const c = (x0 + x1) / 2;
+  const depth = clamp(num(s.depth, 1), 0.3, 2.5);
+  return [plank(x0, y + depth, c - opening / 2, y), plank(c + opening / 2, y, x1, y + depth)];
+}
+
+const STRUCTURES = { ramp_path: rampPath, staircase, wall, cup, funnel };
+
+export function layoutStructure(s) {
+  const build = STRUCTURES[s.type];
+  return build ? build(s) : [];
+}
+
 // ---------- object groups ----------
 
 function extent(g) { return g.shape === 'ball' ? g.size : g.size / 2; }
@@ -180,11 +283,35 @@ export function layoutPlan(plan, existingRamps = {}, prompt = '') {
   plan = applyPromptHints(plan, prompt);
   const ramps = { ...existingRamps };
   const rampSpecs = [];
-  for (const [i, r] of (plan.ramps || []).entries()) {
+  const usedNames = new Set(Object.keys(ramps));
+  for (const [i, r] of (plan.ramps || []).slice(0, 8).entries()) {
     const spec = layoutRamp({ ...r, name: r.name || String.fromCharCode(65 + i) });
+    if (usedNames.has(spec.name)) continue; // the model sometimes repeats a ramp
+    usedNames.add(spec.name);
     ramps[spec.name] = spec;
     rampSpecs.push(spec);
   }
+  const extraGroups = [];
+  for (const s of (plan.structures || []).slice(0, 4)) {
+    const pieces = layoutStructure(s);
+    for (const spec of pieces) {
+      if (spec.name) ramps[spec.name] = spec;
+      rampSpecs.push(spec);
+    }
+    // a ramp path or staircase can come with its own ball, placed at the top
+    if (s.ball_material && pieces[0]?.name) {
+      const ball = { shape: 'ball', material: s.ball_material, size: s.ball_size ?? 0.15, place: 'top_of_ramp', ramp: pieces[0].name };
+      // stairs are flat, so the ball needs a nudge toward the way down
+      if (s.type === 'staircase') Object.assign(ball, { speed: 1.5, direction: s.direction === 'down_left' ? 'left' : 'right' });
+      extraGroups.push(ball);
+    }
+  }
+  // The model often also adds the same ball as a separate group on the path; keep just one.
+  const structureRamps = new Set(extraGroups.map((g) => g.ramp));
+  const others = (plan.groups || []).filter((g) => !(extraGroups.length && g.shape !== 'box'
+    && String(g.place || '').includes('ramp') && (!g.ramp || structureRamps.has(g.ramp) || !ramps[g.ramp])
+    && num(g.count, 1) <= 1));
+  plan = { ...plan, groups: [...extraGroups, ...others] };
   const bodies = [...rampSpecs];
   for (const g of tidyGroups(plan.groups || [])) bodies.push(...layoutGroup(g, ramps));
   return { world: plan.world, bodies: bodies.slice(0, 60), ramps };

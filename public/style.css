@@ -204,6 +204,13 @@ a:hover { text-decoration: underline; }
 .numbers td + td { padding-left: var(--s-3); }
 .numbers tbody td:last-child { color: var(--text); font-weight: 600; }
 
+.understood-label { margin: var(--s-3) 0 0; color: var(--muted); font-size: var(--t-xs); line-height: var(--lh-xs); }
+.understood { margin: var(--s-1) 0 0; padding-left: var(--s-4); font-size: var(--t-xs); line-height: var(--lh-xs); }
+.understood li + li { margin-top: var(--s-1); }
+.check { margin: var(--s-3) 0 0; padding: var(--s-2) var(--s-3); border-radius: var(--radius-inner); font-size: var(--t-xs); line-height: var(--lh-xs); }
+.check.ok { background: rgba(63, 193, 176, 0.1); color: var(--accent); }
+.check.warn { background: rgba(242, 184, 75, 0.12); color: var(--amber); }
+
 .try-next {
   display: block; width: 100%; margin-top: var(--s-3); padding: var(--s-2) var(--s-3);
   background: rgba(63, 193, 176, 0.08); border: 1px solid rgba(63, 193, 176, 0.35); border-radius: var(--radius);

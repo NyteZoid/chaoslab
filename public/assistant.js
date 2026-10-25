@@ -20,6 +20,7 @@ export class Assistant {
     this.getBaseline = getBaseline;
     this.provider = 'cloud';
     this.busy = false;
+    this.history = []; // recent build requests, so follow-ups make sense
     this.status = { cloud: false, local: false };
 
     els.form.addEventListener('submit', (e) => {
@@ -94,12 +95,23 @@ export class Assistant {
     if (this.busy) return;
     this.setBusy('build');
     try {
-      const out = await this.post('/api/build', { prompt, scene: this.lab.getScene(), provider: this.provider });
+      const out = await this.post('/api/build', {
+        prompt,
+        scene: this.lab.getScene(),
+        provider: this.provider,
+        history: this.history.slice(-3),
+        outcome: this.outcome(),
+        image: this.snapshot(), // Gemma sees the current scene, so "make it faster" has a referent
+      });
       const label = this.apply(out.call, prompt);
+      const check = this.checkScene(out.call.args);
+      this.history.push({ prompt, result: `${out.call.name}: ${label}. ${out.call.args.note || ''}`.trim() });
       this.renderResult({
         kind: 'build',
         headline: label,
         explanation: out.call.args.note || '',
+        understood: out.call.args.checklist,
+        check,
         meta: this.meta(out, out.call.name === 'build_scene' ? 'Built with function calling' : 'Edited with function calling'),
       });
       this.els.input.value = '';
@@ -108,6 +120,33 @@ export class Assistant {
     } finally {
       this.setBusy(null);
     }
+  }
+
+  // A compact account of the run so far, for follow-up requests.
+  outcome() {
+    const run = this.telemetry.current;
+    if (!run || !this.telemetry.latest()) return null;
+    return {
+      seconds: this.telemetry.latest().t,
+      objects: this.telemetry.objectReport(run, 10).map((o) => ({
+        id: o.id, shape: o.shape, material: o.material, start: o.start, end: o.end,
+        peak_speed_mps: o.peak_speed_mps, ...(o.shattered ? { shattered: o.shattered } : {}),
+      })),
+    };
+  }
+
+  // For paths and stairs, run the scene ahead invisibly and say whether the ball gets to the bottom.
+  checkScene(args) {
+    const kinds = [...(args.structures || []), ...(args.add_structures || [])].map((s) => s.type);
+    if (!kinds.some((k) => k === 'ramp_path' || k === 'staircase')) return null;
+    const report = this.lab.dryRun(25);
+    if (!report.length) return null;
+    const arrived = report.filter((r) => r.floorAt !== null);
+    if (arrived.length === report.length) {
+      const t = Math.max(...arrived.map((r) => r.floorAt));
+      return { ok: true, text: `Checked by running it ahead: ${report.length === 1 ? 'the ball reaches' : 'every object reaches'} the bottom in ${t} s.` };
+    }
+    return { ok: false, text: `Checked by running it ahead: ${report.length - arrived.length} of ${report.length} objects stop before the bottom. Try asking for a steeper path.` };
   }
 
   // Turn Gemma's tool call into a scene and run it from the start. Gemma describes the scene;
@@ -133,7 +172,7 @@ export class Assistant {
       if (u.speed != null) Object.assign(b, launchVelocity(u.speed, u.direction));
     }
     const existingRamps = Object.fromEntries(scene.bodies.filter((b) => b.shape === 'plank').map((b) => [b.name || `#${b.id}`, b]));
-    const { world, bodies } = layoutPlan({ world: args.world, ramps: args.add_ramps, groups: args.add_groups }, existingRamps, prompt);
+    const { world, bodies } = layoutPlan({ world: args.world, structures: args.add_structures, ramps: args.add_ramps, groups: args.add_groups }, existingRamps, prompt);
     Object.assign(scene.world, world);
     scene.bodies.push(...bodies);
     scene.bodies = scene.bodies.slice(0, 60);
@@ -236,9 +275,12 @@ export class Assistant {
     const rows = (r.numbers || []).slice(0, 4)
       .filter((n) => n && (n.after || n.before))
       .map((n) => `<tr><th scope="row">${esc(n.label)}</th>${r.twoRuns ? `<td>${esc(n.before)}</td><td>${esc(n.after)}</td>` : `<td>${esc(n.after || n.before)}</td>`}</tr>`).join('');
+    const understood = (r.understood || []).filter(Boolean).slice(0, 8);
     result.innerHTML = `
       <h3 class="answer-head">${esc(r.headline)}</h3>
       ${r.explanation ? `<p>${esc(r.explanation)}</p>` : ''}
+      ${understood.length ? `<p class="understood-label">What Gemma understood</p><ul class="understood">${understood.map((u) => `<li>${esc(u)}</li>`).join('')}</ul>` : ''}
+      ${r.check ? `<p class="check ${r.check.ok ? 'ok' : 'warn'}">${esc(r.check.text)}</p>` : ''}
       ${rows ? `<table class="numbers">${r.twoRuns ? '<thead><tr><th></th><th>Before</th><th>After</th></tr></thead>' : ''}<tbody>${rows}</tbody></table>` : ''}
       ${r.try_next ? `<button type="button" class="try-next">Try next: ${esc(r.try_next)}</button>` : ''}
       <p class="answer-meta">${esc(r.meta)}</p>`;

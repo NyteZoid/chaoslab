@@ -59,7 +59,40 @@ export class Lab {
   }
 
   on(name, fn) { (this.listeners[name] ||= []).push(fn); }
-  emit(name, data) { (this.listeners[name] || []).forEach((fn) => fn(data)); }
+  emit(name, data) {
+    if (this.muted) return; // dry runs are invisible: no telemetry, sounds or effects
+    (this.listeners[name] || []).forEach((fn) => fn(data));
+  }
+
+  // Run the current scene ahead invisibly and report what each loose object did, then restart it.
+  // Used to check that an AI-built scene does what was asked (e.g. the ball reaches the bottom).
+  dryRun(seconds = 10) {
+    const wasRunning = this.runner.enabled;
+    this.runner.enabled = false;
+    this.muted = true;
+    const report = new Map();
+    const steps = Math.round(seconds * STEP_TO_SEC);
+    try {
+      for (let i = 0; i < steps; i++) {
+        Engine.update(this.engine, 1000 / STEP_TO_SEC);
+        for (const b of this.liveBodies()) {
+          if (b.fragment) continue;
+          const r = report.get(b.id) || { id: b.id, minY: Infinity, floorAt: null };
+          r.minY = Math.min(r.minY, b.y);
+          r.end = { x: b.x, y: b.y };
+          const spec = this.bodies.find((s) => s.id === b.id);
+          const rest = spec ? (spec.shape === 'ball' ? spec.size : spec.size / 2) : 0.2;
+          if (r.floorAt === null && b.y < rest + 0.08) r.floorAt = Math.round((i / STEP_TO_SEC) * 10) / 10;
+          report.set(b.id, r);
+        }
+      }
+    } finally {
+      this.muted = false;
+      this.runner.enabled = wasRunning && !this.paused;
+    }
+    this.rerun(this.lastReason);
+    return [...report.values()];
+  }
 
   get time() { return (this.engine.timing.timestamp - this.runStart) / 1000; }
 
@@ -77,6 +110,7 @@ export class Lab {
 
   // Rebuild every body from the spec so runs start from identical conditions.
   rerun(reason = 'Rerun') {
+    this.lastReason = reason;
     for (const body of this.allBodies()) {
       if (!body.plugin.wall) Composite.remove(this.engine.world, body);
     }

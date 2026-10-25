@@ -96,6 +96,29 @@ const RAMP = {
   required: ['name', 'direction', 'angle', 'length', 'top_height'],
 };
 
+const STRUCTURE = {
+  type: 'object',
+  description: 'A multi-part fixed build whose pieces ChaosLab lines up exactly.',
+  properties: {
+    type: {
+      type: 'string',
+      enum: ['ramp_path', 'staircase', 'wall', 'cup', 'funnel'],
+      description: 'ramp_path = zigzag of connected ramps a ball rolls all the way down (marble run, maze, pathway); staircase = steps going down; wall = vertical barrier; cup = open box that catches objects; funnel = V shape with a gap at the bottom',
+    },
+    name: { type: 'string', description: 'id; the ramps of a ramp_path are called <name>1 (top), <name>2, ...' },
+    side: SIDE,
+    levels: { type: 'integer', description: 'ramp_path: number of ramps, 2 to 7' },
+    steps: { type: 'integer', description: 'staircase: number of steps, 2 to 10' },
+    angle: { type: 'number', description: 'ramp_path: slope of each ramp in degrees (8 to 35, default 15)' },
+    top_height: { type: 'number', description: 'height of the top in metres' },
+    height: { type: 'number', description: 'wall or cup height, or funnel height above the floor, metres' },
+    width: { type: 'number', description: 'metres' },
+    direction: { type: 'string', enum: ['down_right', 'down_left'], description: 'staircase: which way it goes down' },
+    ball_material: { ...MATERIAL, description: 'ramp_path or staircase: put a ball of this material at the top. Use this instead of a separate group.' },
+  },
+  required: ['type'],
+};
+
 const GROUP = {
   type: 'object',
   description: 'One or more identical objects arranged together.',
@@ -150,7 +173,8 @@ const BUILD_TOOLS = [
         title: { type: 'string', description: 'short name for the experiment' },
         note: { type: 'string', description: 'one sentence telling the user what to watch for' },
         world: WORLD,
-        ramps: { type: 'array', items: RAMP },
+        structures: { type: 'array', items: STRUCTURE, description: 'ramp paths, stairs, walls, cups, funnels' },
+        ramps: { type: 'array', items: RAMP, description: 'single stand-alone ramps only; for connected ramps use a ramp_path structure' },
         groups: { type: 'array', items: GROUP, description: 'every loose object, as groups' },
       },
       required: ['checklist', 'title', 'note', 'groups'],
@@ -164,6 +188,7 @@ const BUILD_TOOLS = [
       properties: {
         note: { type: 'string', description: 'one sentence telling the user what changed and what to watch for' },
         world: WORLD,
+        add_structures: { type: 'array', items: STRUCTURE },
         add_ramps: { type: 'array', items: RAMP },
         add_groups: { type: 'array', items: GROUP },
         remove_ids: { type: 'array', items: { type: 'integer' } },
@@ -195,6 +220,7 @@ You never give coordinates. You describe ramps and groups of objects; ChaosLab c
 Vocabulary:
 - side: left, center-left, center, center-right, right.
 - place: floor, air (needs height), top_of_ramp, on_ramp, bottom_of_ramp (both need ramp).
+- structures (exact multi-part builds): ramp_path (connected zigzag ramps a ball rolls all the way down: marble run, maze, pathway, track), staircase, wall, cup, funnel.
 - arrangement: single, row, touching_row, stack, pyramid, grid, scattered (use count for how many).
 - speed (m/s) + direction ("left", "right", "up", "down" or degrees: 0 right, 45 up-right, 90 up, 135 up-left).
 - materials: rubber, wood, steel, ice, stone, foam. Leave mass out unless the user gives one.
@@ -205,19 +231,27 @@ Examples (arguments for build_scene):
 "a ball rolls down a ramp into a stack of 3 boxes" -> {"title":"Ramp into a stack","note":"...","ramps":[{"name":"A","side":"left","direction":"down_right","angle":30,"length":5,"top_height":3}],"groups":[{"shape":"ball","material":"steel","place":"top_of_ramp","ramp":"A"},{"shape":"box","material":"wood","count":3,"arrangement":"stack","place":"bottom_of_ramp","ramp":"A"}]}
 "Newton's cradle" -> {"title":"Newton's cradle","note":"...","world":{"airDensity":0},"groups":[{"shape":"ball","material":"steel","count":5,"arrangement":"touching_row","place":"floor","side":"center"},{"shape":"ball","material":"steel","place":"floor","side":"left","speed":4,"direction":"right"}]}
 "feather vs bowling ball on the Moon" -> {"title":"Moon drop","note":"...","world":{"gravity":0.165,"airDensity":0},"groups":[{"shape":"ball","material":"foam","place":"air","height":4,"side":"center-left"},{"shape":"ball","material":"steel","place":"air","height":4,"side":"center-right"}]}
+"a pathway of ramps the ball rolls down" or "a ramp maze" -> {"title":"Ramp path","note":"...","structures":[{"type":"ramp_path","name":"path","levels":4,"ball_material":"steel"}],"groups":[]}
+"a ball bouncing down stairs into a cup" -> {"title":"Stairs","note":"...","structures":[{"type":"staircase","steps":5,"direction":"down_right","side":"center-left","ball_material":"rubber"},{"type":"cup","side":"right"}],"groups":[]}
 "throw a ball at 45 degrees" -> {"title":"Projectile","note":"...","groups":[{"shape":"ball","material":"rubber","place":"floor","side":"left","speed":8,"direction":"45"}]}
 
 Rules:
 - Start with checklist: one line per ramp and per kind of object the user asked for. Then make exactly one ramp or group per line.
 - Include every object the user asked for and nothing else. One group per distinct kind of object; never repeat a group.
+- Anything with several connected ramps (path, track, maze, zigzag, marble run) is ONE ramp_path structure, never separate ramps.
 - Give every group a side unless it is placed on or at a ramp. Things that move toward each other start on opposite sides.
-- Use build_scene for a new experiment. Use edit_scene only when the user asks to change the current scene (its objects and ids are given).
+- Use build_scene for a new experiment. Use edit_scene when the request refers to the current scene ("it", "the ball", "didn't", "make it", "more", "again", "faster"): the current scene, the previous requests and what happened in the last run are given, so fix the actual problem.
 - Set breakable true only when the user mentions breaking, shattering, smashing or fragile things.
 - note: one sentence on what to watch for.`;
 
-async function build({ prompt, scene, image, provider }) {
+async function build({ prompt, scene, image, provider, history = [], outcome = null }) {
   const started = Date.now();
-  const text = `Current scene (JSON):\n${JSON.stringify(describeScene(scene))}\n\nRequest: ${prompt}`;
+  // Follow-ups ("the ball didn't reach the bottom") need to know what came before and what happened.
+  const parts = [`Current scene (JSON):\n${JSON.stringify(describeScene(scene))}`];
+  if (history.length) parts.push(`Previous requests in this session, oldest first:\n${history.slice(-3).map((h) => `- "${h.prompt}" -> ${h.result}`).join('\n')}`);
+  if (outcome) parts.push(`What happened in the current run (measured):\n${JSON.stringify(outcome)}`);
+  parts.push(`Request: ${prompt}`);
+  const text = parts.join('\n\n');
   // Gemma sometimes loops, repeating groups until it runs out of tokens. Cap the output and the
   // wait, and retry once at a different temperature, which usually breaks the loop.
   let out;
@@ -257,7 +291,8 @@ async function generate({ provider = 'cloud', ...req }) {
   } catch (e) {
     // Free-tier Gemini allows ~16k input tokens a minute, and occasionally fails or stalls.
     // Fall back to the on-device model so the user still gets an answer.
-    const reason = e.rateLimited ? 'Cloud rate limit reached' : e.serverError ? 'Cloud Gemma had a server error' : /timed out/.test(e.message) ? 'Cloud Gemma timed out' : null;
+    const reason = e.rateLimited ? 'Cloud rate limit reached' : e.serverError ? 'Cloud Gemma had a server error' : /timed out/.test(e.message) ? 'Cloud Gemma timed out'
+      : /fetch failed|ENOTFOUND|ECONNRESET|ETIMEDOUT/i.test(e.message + (e.cause?.code || '')) ? 'Could not reach the Gemini API' : null;
     if (reason && (await status()).local) {
       const out = await ollama(req);
       return { ...out, provider: 'local', fallback: `${reason}, answered on-device`, ms: Date.now() - started };

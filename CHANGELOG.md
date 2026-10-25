@@ -2,6 +2,15 @@
 
 All notable changes to ChaosLab. Newest first.
 
+## 0.4.0 (2026-10-25): Gemma understands paths, mazes and follow-ups
+
+- Structures built exactly by code: ramp_path (connected zigzag marble run with bumper walls), staircase, wall, cup and funnel. Gemma names the structure; `layout.js` lines up every piece.
+- Follow-up requests now send the previous requests, what happened in the current run and a screenshot, so "the ball didn't reach the bottom" fixes the current scene.
+- Ramp paths and stairs are checked by running the physics ahead invisibly; the answer says whether the ball reaches the bottom.
+- The answer card shows "What Gemma understood" (its checklist).
+- Cloud network failures also fall back to on-device Gemma.
+- Compared Gemma 4 31B with 26B A4B: 31B was 2 to 4 times slower and hit "high demand" errors, so 26B A4B stays.
+
 ## 0.3.1 (2026-10-25): Event rulebook compliance
 
 - README: models used with licence links, exact Gemini API integration, libraries and services, honest credit for the AI coding tool used and which parts it produced, team members.
