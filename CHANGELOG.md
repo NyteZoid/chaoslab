@@ -7,6 +7,7 @@ All notable changes to ChaosLab. Newest first.
 - Gemma is shown the solved problems most similar to each request (data/examples.json, 19 worked mappings), so new wordings map like known ones.
 - If Gemma leaves numbers from the problem unused, it is asked once more and the answer that uses more of the problem is kept (e.g. a dropped 24 N push is recovered).
 - Planets and moons use real surface gravity and air density from NASA fact sheets (Mercury to Pluto, Titan, Europa, Io, Ganymede, Callisto).
+- Fine-tuning data generator: labelled sentence → build_scene call → textbook answer, 2,000 examples in data/finetune.jsonl.
 
 ## 0.10.0 (2026-10-25): Newton's-laws problems
 

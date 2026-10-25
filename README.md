@@ -101,6 +101,16 @@ Three design choices make the model reliable:
 2. **Grounded in solved examples and real data.** Each request carries the most similar solved problems from [`data/examples.json`](data/examples.json); if a number from the problem goes unused, Gemma is asked once more; and planets and moons use surface gravity and air density from NASA fact sheets.
 3. **Explanations only use measured data.** The prompt includes per-object outcomes (peak speed, bounce heights, impact energy, whether it shattered) and the physics rules the simulation uses, and forbids inventing numbers.
 
+## Fine-tuning data for Gemma
+
+Gemma 4 is open-weight, so the on-device model can be specialised for ChaosLab. [`scripts/make-finetune-data.mjs`](scripts/make-finetune-data.mjs) generates labelled training data from the simulator itself: a JEE-style sentence, the exact `build_scene` call that loads the right apparatus, and the textbook answer computed by [`public/apparatus.js`](public/apparatus.js). [`data/finetune.jsonl`](data/finetune.jsonl) holds 2,000 examples across all 13 apparatus; generate more with:
+
+```bash
+node scripts/make-finetune-data.mjs 20000 > data/finetune.jsonl
+```
+
+The next step (not done yet) is a LoRA fine-tune of Gemma 4 E4B on this set with a standard supervised fine-tuning tool, then serving it through Ollama in place of `gemma4:e4b`.
+
 ## Run it locally
 
 Requirements: [Node.js](https://nodejs.org/) 20 or newer. Optional: [Ollama](https://ollama.com/) for on-device mode.
