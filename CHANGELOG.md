@@ -4,7 +4,7 @@ All notable changes to ChaosLab. Newest first.
 
 ## 0.3.1 (2026-10-25): Event rulebook compliance
 
-- README: models used with licence links, exact Gemini API integration, libraries and services, honest credit for the AI coding tool used and which parts it produced, team section.
+- README: models used with licence links, exact Gemini API integration, libraries and services, honest credit for the AI coding tool used and which parts it produced, team members.
 - Footer links Gemma 4 and its licence, Matter.js, and the source repository.
 
 ## 0.3.0 (2026-10-25): Gemma 4 integration, fracture

@@ -19,7 +19,11 @@ Built during **Hacktoberfest x MOSS Hack Day Udupi** (MIT Manipal, 25 October 20
 
 ## Team
 
-> **TODO before submission:** list every team member (2 to 4 people) here.
+| Name | GitHub |
+|---|---|
+| Prithu Pandey | [@prithu9454](https://github.com/prithu9454) |
+| Kanishk Rai | [@syncwhale](https://github.com/syncwhale) |
+| Vikas Agarwal | [@polymorphicblob](https://github.com/polymorphicblob) |
 
 ## Models used
 
