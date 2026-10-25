@@ -427,7 +427,21 @@ function drawLink(ctx, l) {
   ctx.save();
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  if (l.type === 'spring') {
+  if (l.type === 'pulley') {
+    // stand-alone pulley disc on a short bracket
+    ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(l.centre.x, l.centre.y);
+    ctx.lineTo(l.centre.x, l.centre.y - l.r - 10);
+    ctx.stroke();
+    drawWheel(ctx, l.centre, l.r);
+    ctx.fillStyle = 'rgba(242, 242, 242, 0.8)';
+    ctx.font = '600 11px Inter, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(`P${l.id}`, l.centre.x, l.centre.y - l.r - 12);
+  } else if (l.type === 'spring') {
     if (l.fixedA) drawAnchor(ctx, l.a);
     drawCoil(ctx, l.a, l.b);
   } else if (l.type === 'rod') {
@@ -450,7 +464,7 @@ function drawLink(ctx, l) {
     l.points.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
     ctx.stroke();
     ctx.setLineDash([]);
-    if (l.points.length && !l.pulleys.length) return ctx.restore();
+    if (l.points.length && !l.pulleys.length) return ctx.restore(); // only disc pulleys: drawn on their own
     // fixed end of a rope (ceiling hook)
     const first = l.points[0];
     if (first && l.pulleys.length && !l.pulleys[0].movable && Math.hypot(first.x - l.pulleys[0].x, first.y - l.pulleys[0].y) > 40) drawAnchor(ctx, first);

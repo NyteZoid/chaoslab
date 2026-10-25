@@ -9,6 +9,7 @@ const MEASURE = {
   pendulum: { key: 'b1', kind: 'period', axis: 'vx' },
   atwood: { key: 'm1', kind: 'accel' },
   table_pulley: { key: 'm2', kind: 'accel' },
+  two_pulley_table: { key: 'm2', kind: 'accel' },
   incline_pulley: { key: 'm2', kind: 'accel' },
   movable_pulley: { key: 'M', kind: 'accel' },
   pulley_system: { key: 'M', kind: 'accel' },

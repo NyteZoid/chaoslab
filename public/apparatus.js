@@ -118,6 +118,45 @@ export const APPARATUS = {
     },
   },
 
+  two_pulley_table: {
+    name: 'Two pulleys, three blocks (table)',
+    params: [
+      p('m1', 'Left hanging mass m₁', 0.1, 50, 0.1, 'kg', 2),
+      p('m2', 'Block on table m₂', 0.1, 50, 0.1, 'kg', 3),
+      p('m3', 'Right hanging mass m₃', 0.1, 50, 0.1, 'kg', 5),
+      p('mu', 'Table friction μ', 0, 1, 0.01, '', 0.1),
+    ],
+    // m₁ ← pulley ← m₂ on the table → pulley → m₃
+    build(v, g) {
+      const tableY = 4.4, left = 3.5, right = 8.5, gg = G * g; // high table: room for both masses to move
+      const drive = (v.m3 - v.m1) * gg, fr = v.mu * v.m2 * gg;
+      const a = Math.abs(drive) > fr ? (Math.abs(drive) - fr) / (v.m1 + v.m2 + v.m3) : 0;
+      const rightward = drive > 0;
+      // tensions: the side going down has T = m(g − a), the side going up T = m(g + a)
+      const T1 = v.m1 * (gg + (rightward ? a : -a));
+      const T2 = v.m3 * (gg - (rightward ? a : -a));
+      return {
+        world: { airDensity: 0, friction: 1 },
+        bodies: [
+          { key: 'table', shape: 'plank', x: (left + right) / 2, y: tableY - 0.08, length: right - left, size: 0.16, angle: 0 },
+          { key: 'm1', shape: 'box', material: 'steel', size: BOX, mass: v.m1, x: left - 0.35, y: tableY - 2.2 },
+          { key: 'm2', shape: 'box', material: 'wood', size: BOX, mass: v.m2, x: 6, y: tableY + BOX / 2 + 0.01, friction: v.mu ** 2 },
+          { key: 'm3', shape: 'box', material: 'steel', size: BOX, mass: v.m3, x: right + 0.35, y: tableY - 2.2 },
+        ],
+        links: [
+          { type: 'rope', points: [{ body: 'm2' }, { x: left - 0.05, y: tableY + BOX / 2 }, { x: left - 0.35, y: tableY + 0.05 }, { body: 'm1' }] },
+          { type: 'rope', points: [{ body: 'm2' }, { x: right + 0.05, y: tableY + BOX / 2 }, { x: right + 0.35, y: tableY + 0.05 }, { body: 'm3' }] },
+        ],
+        theory: [
+          ['Direction', a === 0 ? 'stays at rest (friction holds)' : rightward ? 'm₃ goes down, m₂ slides right' : 'm₁ goes down, m₂ slides left'],
+          ['Acceleration (|m₃ − m₁|g − μm₂g)/(m₁+m₂+m₃)', `${r2(a)} m/s²`],
+          ['Left rope tension T₁', `${r2(T1)} N`],
+          ['Right rope tension T₂', `${r2(T2)} N`],
+        ],
+      };
+    },
+  },
+
   incline_pulley: {
     name: 'Block on incline + hanging mass',
     params: [

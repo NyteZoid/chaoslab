@@ -1,6 +1,6 @@
 {
   "name": "chaoslab",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "A browser physics sandbox where Gemma 4 builds experiments from plain language and explains the results using measured simulation data.",
   "main": "server.js",
   "scripts": {

@@ -76,8 +76,6 @@
           <button class="vb" type="button" id="vbFit" title="Reset view (0)"><svg class="icon"><use href="#i-fit"/></svg></button>
           <span class="vb-sep"></span>
           <button class="vb vb-text" type="button" id="vbGrid" title="Grid spacing (G)"><svg class="icon"><use href="#i-grid"/></svg><span id="vbGridLabel">1 m</span></button>
-          <span class="vb-sep"></span>
-          <button class="vb" type="button" id="vbFull" title="Full screen (F)"><svg class="icon"><use href="#i-full"/></svg></button>
         </div>
         <div class="coords" id="coords"></div>
       </div>
@@ -89,6 +87,7 @@
           <button class="seg" type="button" role="radio" aria-checked="false" data-tool="plank"><svg class="icon"><use href="#i-ramp"/></svg>Ramp</button>
           <button class="seg" type="button" role="radio" aria-checked="false" data-tool="spring" title="Click an object or empty space, then a second one"><svg class="icon"><use href="#i-spring"/></svg>Spring</button>
           <button class="seg" type="button" role="radio" aria-checked="false" data-tool="string" title="Click a support point, then an object (pendulum)"><svg class="icon"><use href="#i-string"/></svg>String</button>
+          <button class="seg" type="button" role="radio" aria-checked="false" data-tool="pulley" title="Click to place a fixed pulley; drag it in Grab mode"><svg class="icon"><use href="#i-pulley"/></svg>Pulley</button>
           <button class="seg" type="button" role="radio" aria-checked="false" data-tool="rope" title="Click an object, then empty space for each pulley, then the other object"><svg class="icon"><use href="#i-pulley"/></svg>Pulley rope</button>
           <button class="seg" type="button" role="radio" aria-checked="false" data-tool="grab"><svg class="icon"><use href="#i-grab"/></svg>Grab</button>
         </div>
@@ -110,8 +109,8 @@
 
         <section class="card">
           <h2 class="overline" id="nextTitle">Next object</h2>
-          <div class="materials" id="materials" role="radiogroup" aria-label="Material" data-hide="plank spring string rope"></div>
-          <label class="switch breakable-switch" data-hide="plank spring string rope"><input type="checkbox" id="breakable"><span></span>Breakable: shatters when hit harder than its threshold</label>
+          <div class="materials" id="materials" role="radiogroup" aria-label="Material" data-hide="plank spring string rope pulley"></div>
+          <label class="switch breakable-switch" data-hide="plank spring string rope pulley"><input type="checkbox" id="breakable"><span></span>Breakable: shatters when hit harder than its threshold</label>
           <div class="sliders" id="spawnSliders"></div>
         </section>
       </div>

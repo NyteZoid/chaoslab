@@ -2,6 +2,12 @@
 
 All notable changes to ChaosLab. Newest first.
 
+## 0.8.1 (2026-10-25): Pulley discs, two-pulley three-block apparatus
+
+- New Pulley tool: place stand-alone pulley discs anywhere, drag them in Grab mode (ropes re-route), right-click to delete. The Pulley rope tool snaps onto discs and wraps the rope around both sides of each wheel.
+- New apparatus: two pulleys, three blocks (m₁ hanging, m₂ on a table with friction, m₃ hanging), with direction, acceleration and both tensions predicted; Gemma maps "2 pulleys and 3 blocks" to it.
+- Full screen view removed.
+
 ## 0.8.0 (2026-10-25): Build-your-own mechanics, full screen, cleaner layout
 
 - New tools usable in any scene, including an empty one: Spring (set stiffness, natural length, damping), String (pendulums) and Pulley rope over as many pulleys as you click.

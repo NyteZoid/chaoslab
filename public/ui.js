@@ -186,14 +186,15 @@ function syncWorldSliders() {
 
 // ---------- tools & canvas input ----------
 
-const LINK_TOOLS = new Set(['spring', 'string', 'rope']);
+const LINK_TOOLS = new Set(['spring', 'string', 'rope', 'pulley']);
 const TOOL_HINTS = {
   ball: 'Click the canvas to drop a ball. Click a ramp to set its exact angle. Right-click an object to delete it.',
   box: 'Click the canvas to drop a box. Click a ramp to set its exact angle. Right-click an object to delete it.',
   plank: 'Click the canvas to place a ramp with the angle and length set below.',
   spring: 'Spring: click an object or empty space (a fixed anchor), then a second object or point. Esc cancels.',
   string: 'String: click a support point (or object), then the object to hang from it. Makes a pendulum. Esc cancels.',
-  rope: 'Pulley rope: click the first object, then empty space for each pulley (as many as you like), then the second object. Esc cancels.',
+  pulley: 'Pulley: click to place a fixed pulley disc. Drag it in Grab mode; right-click it to delete. Then use Pulley rope to run a rope over it.',
+  rope: 'Pulley rope: click the first object, then each pulley it passes over (click a pulley disc, or empty space for a new one), then the second object. Esc cancels.',
   grab: 'Grab: drag objects, pulleys and anchors. Drag empty space to pan when zoomed in. Scroll to zoom.',
 };
 let pending = null; // a spring, string or rope being built: { type, refs, points }
@@ -213,7 +214,7 @@ function setTool(next) {
   renderer.spawnPreview = tool === 'grab' || LINK_TOOLS.has(tool) ? null : () => ({ shape: tool, ...spawnSpec() });
   canvas.style.cursor = tool === 'grab' ? 'grab' : 'crosshair';
   $('toolHint').textContent = TOOL_HINTS[tool];
-  $('nextTitle').textContent = { spring: 'Spring settings', string: 'String', rope: 'Pulley rope', grab: 'Next object' }[tool] || 'Next object';
+  $('nextTitle').textContent = { spring: 'Spring settings', string: 'String', rope: 'Pulley rope', pulley: 'Pulley', grab: 'Next object' }[tool] || 'Next object';
   syncAutoMass();
   syncBreakControls();
 }
@@ -245,10 +246,18 @@ function linkRefAt(w) {
 }
 
 function linkClick(w) {
-  const { ref } = linkRefAt(w);
+  if (tool === 'pulley') {
+    const m = toM(w.x, w.y);
+    lab.addPulley(round2(m.x), round2(Math.max(0.3, m.y)));
+    return;
+  }
+  // a rope clicked on a pulley disc goes over that pulley
+  const disc = tool === 'rope' ? lab.pulleyAt(w) : null;
+  const { ref } = disc ? { ref: { pulley: disc.id } } : linkRefAt(w);
   pending ||= { type: tool, refs: [], points: [] };
   pending.refs.push(ref);
-  pending.points.push(ref.body != null ? (() => { const b = lab.allBodies().find((x) => x.plugin.specId === ref.body); return { x: b.position.x, y: b.position.y }; })() : { ...w });
+  pending.points.push(ref.body != null ? (() => { const b = lab.allBodies().find((x) => x.plugin.specId === ref.body); return { x: b.position.x, y: b.position.y }; })()
+    : ref.pulley != null ? lab.pulleyTop(ref.pulley) : { ...w });
   const refs = pending.refs;
   const dist = () => { const [a, b] = pending.points; return Math.hypot(b.x - a.x, b.y - a.y) / 100; };
   if (tool === 'spring' && refs.length === 2) {
@@ -287,7 +296,7 @@ canvas.addEventListener('pointerdown', (e) => {
   if (LINK_TOOLS.has(tool)) { linkClick(w); return; }
   if (tool === 'grab') {
     const point = lab.linkPointAt(w, 14 / renderer.view.zoom);
-    if (point) { drag = { point }; canvas.setPointerCapture(e.pointerId); return; }
+    if (point) { drag = { point }; try { canvas.setPointerCapture(e.pointerId); } catch { /* synthetic events */ } return; }
   }
   // clicking a ramp or wall selects it for editing instead of dropping something on it
   const hitId = lab.specAtPoint(w.x, w.y);
@@ -295,7 +304,7 @@ canvas.addEventListener('pointerdown', (e) => {
   if (hit && hit.static) { selectFixed(hit.id); return; }
   selectFixed(null);
   if (tool === 'grab') {
-    if (!hitId) { drag = { pan: true, last: p }; canvas.setPointerCapture(e.pointerId); }
+    if (!hitId) { drag = { pan: true, last: p }; try { canvas.setPointerCapture(e.pointerId); } catch { /* synthetic events */ } }
     return;
   }
   const m = toM(w.x, w.y);
@@ -323,6 +332,8 @@ canvas.addEventListener('contextmenu', (e) => {
   e.preventDefault();
   const w = worldPoint(e);
   const id = lab.specAtPoint(w.x, w.y);
+  const point = lab.linkPointAt(w, 14 / renderer.view.zoom);
+  if (point?.pulleyId != null) { lab.removePulley(point.pulleyId); return; }
   if (id) lab.removeBody(id);
 });
 canvas.addEventListener('wheel', (e) => {
@@ -362,18 +373,12 @@ function syncViewbar() {
 }
 const zoomBy = (f) => { renderer.setZoom(renderer.view.zoom * f, { x: canvas.width / 2, y: canvas.height / 2 }); syncViewbar(); };
 const cycleGrid = () => { renderer.gridStep = GRID_STEPS[(GRID_STEPS.indexOf(renderer.gridStep) + 1) % GRID_STEPS.length]; syncViewbar(); };
-const toggleFull = () => {
-  const wrap = canvas.parentElement;
-  if (document.fullscreenElement) document.exitFullscreen();
-  else wrap.requestFullscreen?.();
-};
 $('vbPlay').addEventListener('click', () => lab.setPaused(!lab.paused));
 $('vbRerun').addEventListener('click', () => lab.rerun('Rerun'));
 $('vbZoomIn').addEventListener('click', () => zoomBy(1.25));
 $('vbZoomOut').addEventListener('click', () => zoomBy(0.8));
 $('vbFit').addEventListener('click', () => { renderer.resetView(); syncViewbar(); });
 $('vbGrid').addEventListener('click', cycleGrid);
-$('vbFull').addEventListener('click', toggleFull);
 lab.on('pause', syncViewbar);
 document.addEventListener('keydown', (e) => {
   if (e.target.matches('input, textarea, select')) return;
@@ -381,7 +386,6 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === '-' || e.key === '_') zoomBy(0.8);
   else if (e.key === '0') { renderer.resetView(); syncViewbar(); }
   else if (e.key === 'g' || e.key === 'G') cycleGrid();
-  else if (e.key === 'f' || e.key === 'F') toggleFull();
   else if (e.key === 'Escape' && pending) cancelLink(TOOL_HINTS[tool]);
 });
 

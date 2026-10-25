@@ -201,13 +201,48 @@ export class Lab {
     this.emit('change', { t: this.time, reason: `added ${what}` });
   }
 
+  // ---- stand-alone pulley discs ----
+
+  addPulley(x, y, r = 0.15) {
+    const id = Math.max(0, ...this.links.filter((l) => l.type === 'pulley').map((l) => l.id)) + 1;
+    this.links.push({ type: 'pulley', id, x, y, r });
+    this.linker.build();
+    this.emit('change', { t: this.time, reason: `added pulley P${id}` });
+    return id;
+  }
+
+  removePulley(id) {
+    // ropes over it go too
+    this.links = this.links.filter((l) => !(l.type === 'pulley' && l.id === id) && !(l.type === 'rope' && l.points.some((p) => p.pulley === id)));
+    this.linker.build();
+    this.emit('change', { t: this.time, reason: `removed pulley P${id}` });
+  }
+
+  pulleyAt(px) {
+    for (const l of this.links) {
+      if (l.type !== 'pulley') continue;
+      if (Math.hypot(l.x * PX_PER_M - px.x, this.toPxY(l.y) - px.y) <= (l.r + 0.12) * PX_PER_M) return l;
+    }
+    return null;
+  }
+
+  // where a rope passing over pulley id touches it (world px): the top of the wheel
+  pulleyTop(id) {
+    const l = this.links.find((x) => x.type === 'pulley' && x.id === id);
+    return l ? { x: l.x * PX_PER_M, y: this.toPxY(l.y + l.r) } : null;
+  }
+
   // Fixed points of links (supports, pulleys, spring anchors) with where they sit, in world px.
   linkPoints() {
     const out = [];
     this.links.forEach((l, i) => {
+      if (l.type === 'pulley') {
+        out.push({ link: i, slot: 'c', kind: `Pulley P${l.id}`, pulleyId: l.id, x: l.x, y: l.y, px: { x: l.x * PX_PER_M, y: this.toPxY(l.y) } });
+        return;
+      }
       const slots = l.type === 'rope' ? l.points.map((p, j) => [j, p]) : [['a', l.a], ['b', l.b]];
       for (const [slot, p] of slots) {
-        if (!p || p.body != null) continue;
+        if (!p || p.body != null || p.pulley != null) continue;
         const kind = l.type === 'rope' ? (slot === 0 || slot === l.points.length - 1 ? 'Rope support' : 'Pulley') : l.type === 'rod' ? 'String support' : 'Spring anchor';
         out.push({ link: i, slot, kind, x: p.x, y: p.y, px: { x: p.x * PX_PER_M, y: this.toPxY(p.y) } });
       }
@@ -229,7 +264,8 @@ export class Lab {
     const l = this.links[index];
     if (!l) return;
     const p = { x: Math.round(clamp(x, 0, WORLD_W) * 100) / 100, y: Math.round(clamp(y, 0, WORLD_H) * 100) / 100 };
-    if (l.type === 'rope') { l.points[slot] = p; delete l.length; } else l[slot] = p;
+    if (l.type === 'pulley') { l.x = p.x; l.y = p.y; for (const r of this.links) if (r.type === 'rope' && r.points.some((q) => q.pulley === l.id)) delete r.length; }
+    else if (l.type === 'rope') { l.points[slot] = p; delete l.length; } else l[slot] = p;
     this.linker.build();
   }
 

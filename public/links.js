@@ -24,14 +24,33 @@ export class Linker {
     this.constraints = [];
     const bodyOf = (id) => this.lab.allBodies().find((b) => b.plugin.specId === id && !b.plugin.fragment) || null;
     // a body end can sit off-centre (dx, dy in metres), e.g. the two sides of a pulley block
-    const end = (ref) => (ref && ref.body != null
+    const pulleys = new Map(this.lab.links.filter((l) => l.type === 'pulley').map((l) => [l.id, l]));
+    const end = (ref) => (ref && ref.pulley != null
+      ? (() => { const p = pulleys.get(ref.pulley); return p ? { fixed: { x: p.x * PX, y: this.lab.toPxY(p.y + p.r) }, disc: true } : { body: null }; })()
+      : ref && ref.body != null
       ? { body: bodyOf(ref.body), off: { x: (ref.dx || 0) * PX, y: -(ref.dy || 0) * PX } }
       : { fixed: { x: ref.x * PX, y: this.lab.toPxY(ref.y) } });
 
     this.live = [];
     for (const spec of this.lab.links) {
+      if (spec.type === 'pulley') {
+        this.live.push({ spec, centre: { x: spec.x * PX, y: this.lab.toPxY(spec.y) }, r: spec.r * PX });
+        continue;
+      }
       if (spec.type === 'rope') {
-        const points = spec.points.map(end);
+        // a rope over a pulley disc touches both sides of the wheel: expand each disc into its
+        // left and right contact points, in the order the rope meets them
+        const raw = spec.points.map((ref) => ({ ref, end: end(ref) }));
+        const points = [];
+        raw.forEach(({ ref, end: e }, i) => {
+          const disc = ref && ref.pulley != null && pulleys.get(ref.pulley);
+          if (!disc || i === 0 || i === raw.length - 1 || !e.fixed) { points.push(e); return; }
+          const cx = disc.x * PX, cy = this.lab.toPxY(disc.y), r = disc.r * PX;
+          const prev = pos(raw[i - 1].end.body === null ? { fixed: { x: cx, y: cy } } : raw[i - 1].end);
+          const sides = [{ fixed: { x: cx - r, y: cy }, disc: true }, { fixed: { x: cx + r, y: cy }, disc: true }];
+          if (prev.x > cx) sides.reverse();
+          points.push(...sides);
+        });
         if (points.some((p) => p.body === null)) continue;
         const length = spec.length != null ? spec.length * PX : ropeLength(points);
         this.live.push({ spec, points, length });
@@ -97,8 +116,10 @@ export class Linker {
 
   // Geometry for drawing.
   drawable() {
-    return this.live.map((l) => (l.spec.type === 'rope'
-      ? { type: 'rope', points: l.points.map(pos), pulleys: l.points.slice(1, -1).map((p) => ({ ...pos(p), movable: !!p.body })), slack: ropeLength(l.points) < l.length - 2 }
+    return this.live.map((l) => (l.spec.type === 'pulley'
+      ? { type: 'pulley', centre: l.centre, r: l.r, id: l.spec.id }
+      : l.spec.type === 'rope'
+      ? { type: 'rope', points: l.points.map(pos), pulleys: l.points.slice(1, -1).filter((p) => !p.disc).map((p) => ({ ...pos(p), movable: !!p.body })), slack: ropeLength(l.points) < l.length - 2, discs: l.points.some((p) => p.disc) }
       : { type: l.spec.type, a: pos(l.a), b: pos(l.b), fixedA: !l.a.body, fixedB: !l.b.body, rest: l.spec.rest }));
   }
 }
