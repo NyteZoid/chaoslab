@@ -2,6 +2,7 @@
 // Scene specs use physics units so Gemma can read and write them directly:
 // metres, kilograms, m/s, degrees; x grows right, y grows UP from the floor.
 import { MATERIALS, DEFAULT_MATERIAL, materialOf, massFor, combine, breakEnergyFor } from './materials.js';
+import { Linker } from './links.js';
 
 const { Engine, Runner, Bodies, Body, Composite, Events, Mouse, MouseConstraint, Query } = Matter;
 
@@ -49,9 +50,11 @@ export class Lab {
     });
     Composite.add(this.engine.world, this.mouseConstraint);
 
-    Events.on(this.engine, 'beforeUpdate', () => { this._applyFriction(); this._applyAirDrag(); });
-    Events.on(this.engine, 'afterUpdate', () => { this._processBreaks(); this.emit('step', this.time); });
-    Events.on(this.engine, 'collisionStart', (e) => { this._mixBounce(e.pairs); this._onCollisions(e.pairs); });
+    this.links = [];           // springs, rods and ropes between bodies (see links.js)
+    this.linker = new Linker(this);
+    Events.on(this.engine, 'beforeUpdate', () => { this._applyFriction(); this._applyAirDrag(); this.linker.beforeStep(); });
+    Events.on(this.engine, 'afterUpdate', () => { this.linker.afterStep(); this._processBreaks(); this.emit('step', this.time); });
+    Events.on(this.engine, 'collisionStart', (e) => { this._mixBounce(e.pairs); this._onCollisions(e.pairs); this._resolveImpacts(e.pairs); });
     Events.on(this.engine, 'collisionActive', (e) => this._mixBounce(e.pairs));
 
     this._buildWalls();
@@ -111,12 +114,18 @@ export class Lab {
   // ---- Public API (also what Gemma's tool calls will drive) ----
 
   getScene() {
-    return { world: { ...this.world }, bodies: this.bodies.map((b) => ({ ...b })) };
+    return { world: { ...this.world }, bodies: this.bodies.map((b) => ({ ...b })), links: this.links.map((l) => structuredClone(l)) };
   }
 
   loadScene(scene, reason = 'Loaded scene') {
     this.world = normalizeWorld({ ...DEFAULT_WORLD, ...(scene.world || {}) });
     this.bodies = (scene.bodies || []).map((b) => normalizeSpec(b));
+    // links may name bodies by the temporary key an apparatus builder gave them
+    const idOf = new Map(this.bodies.filter((b) => b.key).map((b) => [b.key, b.id]));
+    const ref = (r) => (r && r.body != null ? { body: idOf.get(r.body) ?? r.body } : r);
+    this.links = (scene.links || []).map((l) => (l.type === 'rope'
+      ? { ...l, points: l.points.map(ref) }
+      : { ...l, a: ref(l.a), b: ref(l.b) }));
     this.rerun(reason);
   }
 
@@ -129,6 +138,7 @@ export class Lab {
     this._breakQueue.clear();
     this._applyWorld();
     for (const spec of this.bodies) this._spawn(spec);
+    this.linker.build();
     this.runStart = this.engine.timing.timestamp;
     this.emit('reset', { reason, world: { ...this.world }, bodies: this.bodies.length });
   }
@@ -223,16 +233,21 @@ export class Lab {
   removeBody(id) {
     const i = this.bodies.findIndex((b) => b.id === id);
     if (i < 0) return false;
+    // links attached to it go too
+    const uses = (r) => r && r.body === id;
+    this.links = this.links.filter((l) => !(l.type === 'rope' ? l.points.some(uses) : uses(l.a) || uses(l.b)));
     const [s] = this.bodies.splice(i, 1);
     for (const body of this.allBodies()) {
       if (body.plugin.specId === id) Composite.remove(this.engine.world, body);
     }
+    this.linker.build();
     this.emit('change', { t: this.time, reason: `removed ${describe(s)}` });
     return true;
   }
 
   clear() {
     this.bodies = [];
+    this.links = [];
     this.rerun('Cleared');
   }
 
@@ -300,7 +315,28 @@ export class Lab {
 
   _surface(body) {
     if (body.isStatic) return { friction: this.world.friction, bounce: this.world.bounciness };
-    return materialOf(body.plugin.material);
+    const m = materialOf(body.plugin.material);
+    // an object can override its material, e.g. a frictionless block or a collision with a set e
+    return { friction: body.plugin.friction ?? m.friction, bounce: body.plugin.bounce ?? m.bounce };
+  }
+
+  toPxY(y) { return FLOOR_PX - y * PX_PER_M; }
+
+  // Matter.js loses restitution when two flat faces meet (moving blocks stick together even at e = 1).
+  // For impacts between two moving objects we apply the textbook impulse ourselves, along the contact
+  // normal: J = (1 + e)·v_closing / (1/m₁ + 1/m₂). Matter then sees them separating and adds nothing.
+  _resolveImpacts(pairs) {
+    for (const pair of pairs) {
+      const A = pair.bodyA.parent, B = pair.bodyB.parent;
+      if (A.isStatic || B.isStatic || pair.isSensor) continue;
+      let n = pair.collision.normal;
+      if ((B.position.x - A.position.x) * n.x + (B.position.y - A.position.y) * n.y < 0) n = { x: -n.x, y: -n.y };
+      const closing = (A.velocity.x - B.velocity.x) * n.x + (A.velocity.y - B.velocity.y) * n.y;
+      if (closing <= 0) continue;
+      const j = ((1 + pair.restitution) * closing) / (A.inverseMass + B.inverseMass);
+      Body.setVelocity(A, { x: A.velocity.x - j * A.inverseMass * n.x, y: A.velocity.y - j * A.inverseMass * n.y });
+      Body.setVelocity(B, { x: B.velocity.x + j * B.inverseMass * n.x, y: B.velocity.y + j * B.inverseMass * n.y });
+    }
   }
 
   // Matter takes the max restitution of a pair; use the geometric mean of both surfaces instead.
@@ -388,8 +424,11 @@ export class Lab {
         shape: s.shape,
         size: s.size,
         breakPerKg: s.breakable ? s.breakEnergy / s.mass : 0, // J/kg, so fragments inherit the toughness
+        friction: s.friction,  // per-object overrides of the material (may be undefined)
+        bounce: s.bounce,
       },
     };
+    if (s.bounce != null && !s.static) opts.restitution = s.bounce;
     let body;
     // Matter's circles have only `radius px` sides, so small balls roll like polygons and bleed
     // speed at every corner. A many-sided polygon rolls smoothly; circleRadius keeps it a circle elsewhere.
@@ -546,6 +585,9 @@ export function normalizeSpec(b, assignId = true) {
     s.length = clamp(num(b.length, 4), 0.3, WORLD_W);
     if (b.name) s.name = String(b.name).slice(0, 12);
   } else {
+    if (b.key) s.key = String(b.key);
+    if (b.friction != null) s.friction = clamp(num(b.friction, 0.5), 0, 2);
+    if (b.bounce != null) s.bounce = clamp(num(b.bounce, 0.5), 0, 1);
     if (b.breakable) {
       s.breakable = true;
       // explicit threshold, or what the material's toughness implies for this mass

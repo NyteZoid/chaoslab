@@ -158,6 +158,26 @@ const WORLD = {
   },
 };
 
+// Class 11 / JEE mechanics apparatus, built exactly by public/apparatus.js with these parameters.
+const APPARATUS = {
+  type: 'object',
+  description: 'A standard mechanics setup with exact parameters. Use it for textbook and JEE-style problems.',
+  properties: {
+    type: {
+      type: 'string',
+      enum: ['spring_mass', 'pendulum', 'atwood', 'table_pulley', 'incline_pulley', 'movable_pulley', 'collision_1d', 'projectile', 'incline_block'],
+      description: 'spring_mass = block on a spring (k, mass, rest, stretch, damping, mu, orientation 1 vertical / 0 horizontal); pendulum = bob on a string (length, mass, angle in degrees, double 1 for a double pendulum); atwood = two masses over one fixed pulley (m1, m2, height); table_pulley = block m1 on a table with friction mu, string over a pulley at the edge to hanging m2; incline_pulley = block m1 on an incline (angle, mu) tied over a pulley at the top to hanging m2; movable_pulley = load on a movable pulley (load) lifted by a hanging effort mass (effort); collision_1d = two blocks on a frictionless track (m1, m2, u1, u2 with right positive, e coefficient of restitution); projectile = launch (speed, angle in degrees, height of launch); incline_block = block on an incline (angle, mu, mass)',
+    },
+    values: {
+      type: 'object',
+      description: 'numbers from the problem in SI units; omit any not given',
+      properties: Object.fromEntries(['orientation', 'k', 'mass', 'rest', 'stretch', 'damping', 'mu', 'length', 'angle', 'double', 'm1', 'm2', 'height', 'load', 'effort', 'u1', 'u2', 'e', 'speed']
+        .map((k) => [k, { type: 'number' }])),
+    },
+  },
+  required: ['type'],
+};
+
 const BUILD_TOOLS = [
   {
     name: 'build_scene',
@@ -173,11 +193,12 @@ const BUILD_TOOLS = [
         title: { type: 'string', description: 'short name for the experiment' },
         note: { type: 'string', description: 'one sentence telling the user what to watch for' },
         world: WORLD,
+        apparatus: { ...APPARATUS, description: 'use INSTEAD of structures/ramps/groups for spring, pendulum, pulley, collision, projectile and incline problems' },
         structures: { type: 'array', items: STRUCTURE, description: 'ramp paths, stairs, walls, cups, funnels' },
         ramps: { type: 'array', items: RAMP, description: 'single stand-alone ramps only; for connected ramps use a ramp_path structure' },
         groups: { type: 'array', items: GROUP, description: 'every loose object, as groups' },
       },
-      required: ['checklist', 'title', 'note', 'groups'],
+      required: ['checklist', 'title', 'note'],
     },
   },
   {
@@ -228,7 +249,13 @@ Vocabulary:
 - materials: rubber, wood, steel, ice, stone, foam. Leave mass out unless the user gives one.
 - world: gravity (Earth 1, Moon 0.165, Mars 0.38, space 0), airDensity (Earth 1.2, Moon/space 0), friction and bounciness of the floor and ramps (0 to 1).
 
+Mechanics problems (Class 11, JEE): if the request is a spring-block, pendulum, Atwood machine, block on a table or incline tied over a pulley, movable pulley, 1D collision, projectile or block on an incline, use apparatus with the numbers from the problem, in SI units, and leave groups empty. If the problem says g = 10 m/s², set world gravity 1.02.
+
 Examples (arguments for build_scene):
+"a 2 kg block on a spring of stiffness 200 N/m is pulled 10 cm and released" -> {"title":"Spring-block SHM","note":"...","checklist":["spring_mass k 200, m 2, stretch 0.1"],"apparatus":{"type":"spring_mass","values":{"k":200,"mass":2,"stretch":0.1,"orientation":0}}}
+"masses of 5 kg and 3 kg hang over a pulley" -> {"title":"Atwood machine","note":"...","checklist":["atwood m1 5, m2 3"],"apparatus":{"type":"atwood","values":{"m1":5,"m2":3}}}
+"a 4 kg block on a 30 degree incline with mu 0.2 is tied over a pulley to a 3 kg hanging mass" -> {"title":"Incline and pulley","note":"...","checklist":["incline_pulley angle 30, m1 4, m2 3, mu 0.2"],"apparatus":{"type":"incline_pulley","values":{"angle":30,"m1":4,"m2":3,"mu":0.2}}}
+"a 1 kg ball at 6 m/s hits a 2 kg ball at rest, e = 0.5" -> {"title":"Collision","note":"...","checklist":["collision_1d m1 1, m2 2, u1 6, u2 0, e 0.5"],"apparatus":{"type":"collision_1d","values":{"m1":1,"m2":2,"u1":6,"u2":0,"e":0.5}}}
 "two balls collide head-on" -> {"title":"Head-on collision","note":"...","groups":[{"shape":"ball","material":"steel","place":"floor","side":"left","speed":5,"direction":"right"},{"shape":"ball","material":"rubber","place":"floor","side":"right","speed":5,"direction":"left"}]}
 "a ball rolls down a ramp into a stack of 3 boxes" -> {"title":"Ramp into a stack","note":"...","ramps":[{"name":"A","side":"left","direction":"down_right","angle":30,"length":5,"top_height":3}],"groups":[{"shape":"ball","material":"steel","place":"top_of_ramp","ramp":"A"},{"shape":"box","material":"wood","count":3,"arrangement":"stack","place":"bottom_of_ramp","ramp":"A"}]}
 "Newton's cradle" -> {"title":"Newton's cradle","note":"...","world":{"airDensity":0},"groups":[{"shape":"ball","material":"steel","count":5,"arrangement":"touching_row","place":"floor","side":"center"},{"shape":"ball","material":"steel","place":"floor","side":"left","speed":4,"direction":"right"}]}

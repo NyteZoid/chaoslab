@@ -7,6 +7,7 @@ import { MATERIALS, DEFAULT_MATERIAL, massFor, breakEnergyFor } from './material
 import { ImpactSound } from './sound.js';
 import { Assistant } from './assistant.js';
 import { Challenge } from './challenge.js';
+import { ApparatusPanel } from './apparatus-panel.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('world');
@@ -484,6 +485,14 @@ assistant.els.challenge = $('challengeBtn');
 
 const challenge = new Challenge({ lab, telemetry, assistant, els: { button: $('challengeBtn'), score: $('challengeScore') } });
 window.ChaosLab.challenge = challenge;
+
+const apparatus = new ApparatusPanel({
+  lab,
+  makeSlider,
+  els: { select: $('appSelect'), sliders: $('appSliders'), load: $('appLoad'), theory: $('appTheory'), measured: $('appMeasured') },
+});
+window.ChaosLab.apparatus = apparatus;
+assistant.apparatus = apparatus; // Gemma can load apparatus too
 
 setMaterial(DEFAULT_MATERIAL);
 setTool('ball');

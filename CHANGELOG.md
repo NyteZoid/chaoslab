@@ -2,6 +2,15 @@
 
 All notable changes to ChaosLab. Newest first.
 
+## 0.7.0 (2026-10-25): Class 11 mechanics apparatus
+
+- New physics: springs (Hooke's law with damping, elastic energy in telemetry), rods for pendulums, and ideal ropes over fixed and movable pulleys (inextensible, can go slack).
+- Apparatus panel with nine setups and every parameter adjustable: spring–block (vertical/horizontal), pendulum (single/double), Atwood machine, block on table + pulley, block on incline + pulley, movable pulley, 1D collision, projectile, block on incline.
+- Each shows the textbook prediction and the value measured live from the simulation; all nine agree within a few per cent (most exactly).
+- Gemma maps Class 11 / JEE-style problems to an apparatus with the numbers from the question (including g = 10 m/s²).
+- Collisions between moving objects now use the textbook impulse with e (Matter.js lost restitution for flat faces).
+- Per-object friction and bounce overrides.
+
 ## 0.6.0 (2026-10-25): Predict-then-run challenges
 
 - "Challenge me" in the Gemma panel: Gemma 4 designs a scene and a neutral question (which hits the floor first, travels farthest, bounces highest, or shatters) through a `make_challenge` function call.

@@ -116,6 +116,7 @@ export class Renderer {
     const bodies = this.lab.allBodies().filter((b) => !b.plugin.wall && b.plugin.specId);
     for (const b of bodies) if (b.isStatic) drawSolid(ctx, b);
     for (const b of bodies) if (b.isStatic) drawRampLabel(ctx, b, b.plugin.specId === this.selectedId);
+    for (const l of this.lab.linker.drawable()) drawLink(ctx, l);
     this._drawShadows(bodies);
     if (this.showTrails) this._drawTrails();
     for (const b of bodies) if (!b.isStatic) drawSolid(ctx, b);
@@ -319,6 +320,99 @@ function drawSolid(ctx, body) {
     ctx.restore();
     label(ctx, body, Math.sqrt(body.area) / 2, base);
   }
+}
+
+// ---------- springs, strings and pulleys ----------
+
+function drawLink(ctx, l) {
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  if (l.type === 'spring') {
+    if (l.fixedA) drawAnchor(ctx, l.a);
+    drawCoil(ctx, l.a, l.b);
+  } else if (l.type === 'rod') {
+    if (l.fixedA) drawAnchor(ctx, l.a);
+    ctx.strokeStyle = 'rgba(230, 230, 230, 0.85)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(l.a.x, l.a.y);
+    ctx.lineTo(l.b.x, l.b.y);
+    ctx.stroke();
+    ctx.fillStyle = ACCENT;
+    ctx.beginPath();
+    ctx.arc(l.a.x, l.a.y, 4, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (l.type === 'rope') {
+    ctx.strokeStyle = l.slack ? 'rgba(230, 230, 230, 0.45)' : 'rgba(240, 240, 240, 0.9)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash(l.slack ? [4, 4] : []);
+    ctx.beginPath();
+    l.points.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (l.points.length && !l.pulleys.length) return ctx.restore();
+    // fixed end of a rope (ceiling hook)
+    const first = l.points[0];
+    if (first && l.pulleys.length && !l.pulleys[0].movable && Math.hypot(first.x - l.pulleys[0].x, first.y - l.pulleys[0].y) > 40) drawAnchor(ctx, first);
+    // neighbouring fixed points close together are the two sides of one wheel
+    const fixed = l.pulleys.filter((p) => !p.movable);
+    for (let i = 0; i < fixed.length; i++) {
+      const p = fixed[i], q = fixed[i + 1];
+      if (q && Math.hypot(q.x - p.x, q.y - p.y) < 90) {
+        drawWheel(ctx, { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }, Math.hypot(q.x - p.x, q.y - p.y) / 2);
+        i++;
+      } else {
+        drawWheel(ctx, { x: p.x, y: p.y + 10 }, 10);
+      }
+    }
+  }
+  ctx.restore();
+}
+
+function drawCoil(ctx, a, b) {
+  const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+  const ux = (b.x - a.x) / len, uy = (b.y - a.y) / len;
+  const nx = -uy, ny = ux;
+  const coils = 12, lead = Math.min(14, len * 0.1), width = 9;
+  ctx.strokeStyle = ACCENT;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y);
+  ctx.lineTo(a.x + ux * lead, a.y + uy * lead);
+  const body = len - 2 * lead;
+  for (let i = 1; i <= coils * 2; i++) {
+    const t = lead + (body * i) / (coils * 2);
+    const side = i === coils * 2 ? 0 : i % 2 ? 1 : -1;
+    ctx.lineTo(a.x + ux * t + nx * width * side, a.y + uy * t + ny * width * side);
+  }
+  ctx.lineTo(b.x, b.y);
+  ctx.stroke();
+}
+
+function drawWheel(ctx, c, r) {
+  ctx.fillStyle = '#1c1c1c';
+  ctx.strokeStyle = 'rgba(239, 68, 68, 0.9)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(c.x, c.y, Math.max(6, r), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#e5e5e5';
+  ctx.beginPath();
+  ctx.arc(c.x, c.y, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// A short hatched bar for a fixed support (ceiling hook or wall mount).
+function drawAnchor(ctx, p) {
+  ctx.fillStyle = '#2a2a2a';
+  ctx.fillRect(p.x - 18, p.y - 6, 36, 6);
+  ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = -18; x < 18; x += 6) { ctx.moveTo(p.x + x, p.y - 6); ctx.lineTo(p.x + x + 6, p.y - 12); }
+  ctx.stroke();
 }
 
 // Every ramp shows its slope; the selected one is outlined.

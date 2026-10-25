@@ -213,6 +213,10 @@ a:hover { text-decoration: underline; }
 .numbers td + td { padding-left: var(--s-3); }
 .numbers tbody td:last-child { color: var(--text); font-weight: 600; }
 
+.app-select { width: 100%; margin-bottom: var(--s-3); }
+.app-load { width: 100%; justify-content: center; margin-top: var(--s-3); }
+.stats dd { text-align: right; }
+
 .challenge-row { display: flex; align-items: center; gap: var(--s-3); margin-top: var(--s-2); }
 .btn-outline { flex: 1; justify-content: center; background: transparent; border-color: var(--accent-soft); color: var(--text); }
 .btn-outline:hover { border-color: var(--accent); }

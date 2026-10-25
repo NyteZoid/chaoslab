@@ -15,6 +15,7 @@ Built during **Hacktoberfest x MOSS Hack Day Udupi** (MIT Manipal, 25 October 20
 - **Real-feeling physics.** Six materials (rubber, wood, steel, ice, stone, foam) with their own friction, bounce, density and toughness; quadratic air drag; Coulomb friction; correct rolling.
 - **Breakable objects.** Objects shatter into fragments when one impact delivers more energy than their threshold (toughness × mass). Fragments are fully simulated and can break again.
 - **Predict-then-run challenges.** Gemma designs a scene and a question where intuition often fails; you guess, the simulation runs, and the correct answer is measured from the physics, not decided by the model. Gemma then explains why, taking your guess into account.
+- **Class 11 mechanics apparatus.** Spring–block, pendulum (single or double), Atwood machine, block on a table or incline tied over a pulley, movable pulley, 1D collision, projectile and block on an incline, with every parameter adjustable. Each shows the textbook prediction next to the value measured live from the simulation. Type a JEE-style problem into the Gemma panel and it loads the matching apparatus with the problem's numbers.
 - **Exact ramps.** Click any ramp to set its angle and length precisely; every ramp shows its angle.
 - **Compare runs.** Moving a slider reruns the scene from the same starting point and overlays the new run on the old one in the chart.
 - **Works offline.** Switch to *On-device* to run Gemma 4 E4B locally through Ollama. The cloud mode also falls back to it automatically when the free tier is rate-limited or unavailable.
@@ -95,6 +96,10 @@ public/
   render.js          pseudo-3D canvas renderer, effects
   telemetry.js       records runs and builds the data Gemma explains
   layout.js          turns Gemma's scene description into exact positions
+  links.js           springs, rods and pulley ropes
+  apparatus.js       Class 11 mechanics setups with textbook predictions
+  apparatus-panel.js the Apparatus panel and live measurements
+  challenge.js       predict-then-run challenges
   assistant.js       the Ask Gemma panel
   materials.js       material properties
   presets.js         starter experiments

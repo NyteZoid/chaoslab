@@ -91,6 +91,7 @@ export class Telemetry {
       maxSpeed = Math.max(maxSpeed, speed);
       maxHeight = Math.max(maxHeight, b.y);
     }
+    pe += this.lab.linker.springEnergy(); // elastic energy counts as potential energy
     const avgSpeed = live.length ? speedSum / live.length : 0;
     run.samples.push({
       t: round(t),

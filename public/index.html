@@ -110,6 +110,17 @@
         <div class="answer" id="gemmaResult" aria-live="polite" hidden></div>
       </section>
 
+      <section class="card" aria-labelledby="app-title">
+        <h2 id="app-title" class="overline">Apparatus · Class 11 mechanics</h2>
+        <label class="visually-hidden" for="appSelect">Apparatus</label>
+        <select id="appSelect" class="control app-select"></select>
+        <div class="sliders app-sliders" id="appSliders"></div>
+        <button id="appLoad" class="btn btn-primary app-load" type="button">Load into the lab</button>
+        <p class="understood-label">Textbook prediction</p>
+        <dl class="stats" id="appTheory"></dl>
+        <p class="check ok" id="appMeasured" aria-live="polite"></p>
+      </section>
+
       <section class="card" id="rampCard" hidden aria-labelledby="rampTitle">
         <div class="card-head">
           <h2 class="overline" id="rampTitle">Selected ramp</h2>

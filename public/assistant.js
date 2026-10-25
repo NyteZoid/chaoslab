@@ -154,6 +154,14 @@ export class Assistant {
   apply(call, prompt) {
     const args = call.args || {};
     const reason = `Gemma: ${truncate(prompt, 60)}`;
+    if (call.name === 'build_scene' && args.apparatus?.type && this.apparatus) {
+      // a textbook setup: the apparatus panel builds it exactly and shows prediction vs measurement
+      const world = { ...DEFAULT_WORLD, timeScale: this.lab.world.timeScale, ...layoutPlan({ world: args.world }, {}, prompt).world };
+      this.lab.world = { ...world };
+      this.apparatus.setType(args.apparatus.type, args.apparatus.values || {});
+      this.apparatus.load(null, reason);
+      return args.title || this.apparatus.loaded?.reason || 'Apparatus';
+    }
     if (call.name === 'build_scene') {
       const { world, bodies } = layoutPlan(args, {}, prompt);
       this.lab.loadScene({ world: { ...DEFAULT_WORLD, timeScale: this.lab.world.timeScale, ...world }, bodies }, reason);
