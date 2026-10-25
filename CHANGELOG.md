@@ -2,6 +2,13 @@
 
 All notable changes to ChaosLab. Newest first.
 
+## 0.7.1 (2026-10-25): Gemma remembers the apparatus; pulley systems
+
+- The current apparatus and its settings are sent with every request, so follow-ups such as "add 2 more pulleys" or "make the load 15 kg" change it instead of rebuilding from scratch. Values not mentioned are kept.
+- New pulley system (block and tackle) apparatus with 2 to 6 pulleys; mechanical advantage, balance mass, accelerations and tension predicted and measured.
+- Rope ends can attach off-centre on a body; loads can be kept from rotating.
+- Acceleration is now measured from positions at three times (like ticker tape), which is robust to the jolt when a rope goes taut.
+
 ## 0.7.0 (2026-10-25): Class 11 mechanics apparatus
 
 - New physics: springs (Hooke's law with damping, elastic energy in telemetry), rods for pendulums, and ideal ropes over fixed and movable pulleys (inextensible, can go slack).

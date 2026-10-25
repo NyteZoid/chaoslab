@@ -11,6 +11,7 @@ const MEASURE = {
   table_pulley: { key: 'm2', kind: 'accel' },
   incline_pulley: { key: 'm2', kind: 'accel' },
   movable_pulley: { key: 'M', kind: 'accel' },
+  pulley_system: { key: 'M', kind: 'accel' },
   incline_block: { key: 'm', kind: 'accel' },
   collision_1d: { kind: 'after_collision' },
   projectile: { key: 'ball', kind: 'range' },
@@ -97,9 +98,14 @@ export class ApparatusPanel {
     } else if (m.kind === 'accel') {
       const b = this.body(m.key);
       if (!b) return;
-      if (m.v0 === null && t >= 0.2) m.v0 = { t, v: Math.hypot(b.vx, b.vy) };
-      if (m.v0 && t >= 0.8) {
-        m.result = `a = ${fmt(Math.abs(Math.hypot(b.vx, b.vy) - m.v0.v) / (t - m.v0.t))} m/s²`;
+      // from positions at three equally spaced times (like ticker tape): a = (s₂ − s₁) / Δt²
+      m.marks ||= [];
+      const next = [0.2, 0.5, 0.8][m.marks.length];
+      if (next !== undefined && t >= next) m.marks.push({ x: b.x, y: b.y });
+      if (m.marks.length === 3) {
+        const [p0, p1, p2] = m.marks;
+        const s1 = Math.hypot(p1.x - p0.x, p1.y - p0.y), s2 = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        m.result = `a = ${fmt(Math.max(0, s2 - s1) / 0.09)} m/s²`;
         m.done = true;
       }
     } else if (m.kind === 'after_collision') {

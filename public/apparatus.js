@@ -175,6 +175,56 @@ export const APPARATUS = {
     },
   },
 
+  pulley_system: {
+    name: 'Pulley system (block and tackle)',
+    params: [
+      p('pulleys', 'Number of pulleys', 2, 6, 1, '', 3),
+      p('load', 'Load M (on the movable block)', 0.5, 80, 0.5, 'kg', 12),
+      p('effort', 'Hanging effort mass m', 0.1, 40, 0.1, 'kg', 3),
+    ],
+    // n pulleys hold up the load with n rope segments: the effort moves n times as far as the load.
+    // Pulleys alternate between the ceiling block and the moving load block.
+    build(v, g) {
+      const n = Math.round(clamp(v.pulleys, 2, 6));
+      const top = 5.9, gap = 0.22, loadY = 2.6;
+      const x0 = 6 - ((n - 1) * gap) / 2;
+      const xs = Array.from({ length: n + 1 }, (_, i) => x0 + i * gap + (i === n ? 0.25 : 0)); // effort hangs clear of the load
+      const cx = (xs[0] + xs[n - 1]) / 2;
+      const T = (i) => ({ x: xs[i], y: top });                   // ceiling side of segment i
+      const size = Math.max(0.35, (n - 1) * gap + 0.2);
+      const B = (i) => ({ body: 'M', dx: xs[i] - cx, dy: size / 2 }); // load side of segment i (top of the block)
+      // Even n: the rope starts at the ceiling; odd n: it is tied to the load. Either way it
+      // finishes over the ceiling and drops to the effort mass.
+      const points = [];
+      let atTop = n % 2 === 0;
+      points.push(atTop ? T(0) : B(0));
+      for (let i = 0; i < n; i++) {
+        if (i > 0) points.push(atTop ? T(i) : B(i)); // cross over to the next segment on the same side
+        atTop = !atTop;
+        points.push(atTop ? T(i) : B(i));            // run along segment i to the other side
+      }
+      points.push(T(n));                              // over the last ceiling pulley
+      points.push({ body: 'm' });
+      const gg = G * g;
+      const aLoad = ((n * v.effort - v.load) * gg) / (v.load + n * n * v.effort);
+      return {
+        world: { airDensity: 0 },
+        bodies: [
+          { key: 'M', shape: 'box', material: 'steel', size, mass: v.load, x: cx, y: loadY, fixedRotation: true },
+          { key: 'm', shape: 'box', material: 'steel', size: 0.25, mass: v.effort, x: xs[n], y: loadY },
+        ],
+        links: [{ type: 'rope', points }],
+        theory: [
+          ['Mechanical advantage (rope segments holding the load)', `${n}`],
+          ['Balances when m = M/n', `${r2(v.load / n)} kg`],
+          ['Load acceleration (n·m − M)g/(M + n²m)', `${r2(Math.abs(aLoad))} m/s² ${aLoad >= 0 ? 'up' : 'down'}`],
+          ['Effort acceleration', `${r2(Math.abs(n * aLoad))} m/s² ${aLoad >= 0 ? 'down' : 'up'}`],
+          ['Rope tension', `${r2(v.effort * (gg - n * aLoad))} N`],
+        ],
+      };
+    },
+  },
+
   collision_1d: {
     name: '1D collision',
     params: [

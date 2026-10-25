@@ -8,7 +8,7 @@ const { Body, Composite, Constraint } = Matter;
 
 const PX = 100;          // px per metre (matches lab.js)
 const STEP = 60;         // steps per second at the base time step
-const ROPE_ITERATIONS = 4;
+const ROPE_ITERATIONS = 12;
 
 export class Linker {
   constructor(lab) {
@@ -23,7 +23,10 @@ export class Linker {
     for (const c of this.constraints) Composite.remove(world, c);
     this.constraints = [];
     const bodyOf = (id) => this.lab.allBodies().find((b) => b.plugin.specId === id && !b.plugin.fragment) || null;
-    const end = (ref) => (ref && ref.body != null ? { body: bodyOf(ref.body) } : { fixed: { x: ref.x * PX, y: this.lab.toPxY(ref.y) } });
+    // a body end can sit off-centre (dx, dy in metres), e.g. the two sides of a pulley block
+    const end = (ref) => (ref && ref.body != null
+      ? { body: bodyOf(ref.body), off: { x: (ref.dx || 0) * PX, y: -(ref.dy || 0) * PX } }
+      : { fixed: { x: ref.x * PX, y: this.lab.toPxY(ref.y) } });
 
     this.live = [];
     for (const spec of this.lab.links) {
@@ -100,7 +103,9 @@ export class Linker {
   }
 }
 
-const pos = (end) => (end.body ? end.body.position : end.fixed);
+const pos = (end) => (end.body
+  ? (end.off && (end.off.x || end.off.y) ? { x: end.body.position.x + end.off.x, y: end.body.position.y + end.off.y } : end.body.position)
+  : end.fixed);
 
 function ropeLength(points) {
   let L = 0;

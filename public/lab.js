@@ -122,7 +122,7 @@ export class Lab {
     this.bodies = (scene.bodies || []).map((b) => normalizeSpec(b));
     // links may name bodies by the temporary key an apparatus builder gave them
     const idOf = new Map(this.bodies.filter((b) => b.key).map((b) => [b.key, b.id]));
-    const ref = (r) => (r && r.body != null ? { body: idOf.get(r.body) ?? r.body } : r);
+    const ref = (r) => (r && r.body != null ? { ...r, body: idOf.get(r.body) ?? r.body } : r); // keep dx/dy offsets
     this.links = (scene.links || []).map((l) => (l.type === 'rope'
       ? { ...l, points: l.points.map(ref) }
       : { ...l, a: ref(l.a), b: ref(l.b) }));
@@ -437,7 +437,7 @@ export class Lab {
     else body = Bodies.rectangle(p.x, p.y, s.length * PX_PER_M, s.size * PX_PER_M, opts);
     if (!s.static) {
       Body.setMass(body, s.mass);
-      Body.setInertia(body, body.inertia / Body._inertiaScale); // Matter inflates inertia 4×; use the real moment so balls roll correctly
+      Body.setInertia(body, s.fixedRotation ? Infinity : body.inertia / Body._inertiaScale); // Matter inflates inertia 4×; use the real moment so balls roll correctly
       Body.setVelocity(body, { x: (s.vx * PX_PER_M) / STEP_TO_SEC, y: (-s.vy * PX_PER_M) / STEP_TO_SEC });
     }
     Composite.add(this.engine.world, body);
@@ -586,6 +586,7 @@ export function normalizeSpec(b, assignId = true) {
     if (b.name) s.name = String(b.name).slice(0, 12);
   } else {
     if (b.key) s.key = String(b.key);
+    if (b.fixedRotation) s.fixedRotation = true; // e.g. a pulley block that should hang level
     if (b.friction != null) s.friction = clamp(num(b.friction, 0.5), 0, 2);
     if (b.bounce != null) s.bounce = clamp(num(b.bounce, 0.5), 0, 1);
     if (b.breakable) {

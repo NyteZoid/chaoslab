@@ -165,13 +165,13 @@ const APPARATUS = {
   properties: {
     type: {
       type: 'string',
-      enum: ['spring_mass', 'pendulum', 'atwood', 'table_pulley', 'incline_pulley', 'movable_pulley', 'collision_1d', 'projectile', 'incline_block'],
-      description: 'spring_mass = block on a spring (k, mass, rest, stretch, damping, mu, orientation 1 vertical / 0 horizontal); pendulum = bob on a string (length, mass, angle in degrees, double 1 for a double pendulum); atwood = two masses over one fixed pulley (m1, m2, height); table_pulley = block m1 on a table with friction mu, string over a pulley at the edge to hanging m2; incline_pulley = block m1 on an incline (angle, mu) tied over a pulley at the top to hanging m2; movable_pulley = load on a movable pulley (load) lifted by a hanging effort mass (effort); collision_1d = two blocks on a frictionless track (m1, m2, u1, u2 with right positive, e coefficient of restitution); projectile = launch (speed, angle in degrees, height of launch); incline_block = block on an incline (angle, mu, mass)',
+      enum: ['spring_mass', 'pendulum', 'atwood', 'table_pulley', 'incline_pulley', 'movable_pulley', 'pulley_system', 'collision_1d', 'projectile', 'incline_block'],
+      description: 'spring_mass = block on a spring (k, mass, rest, stretch, damping, mu, orientation 1 vertical / 0 horizontal); pendulum = bob on a string (length, mass, angle in degrees, double 1 for a double pendulum); atwood = two masses over one fixed pulley (m1, m2, height); table_pulley = block m1 on a table with friction mu, string over a pulley at the edge to hanging m2; incline_pulley = block m1 on an incline (angle, mu) tied over a pulley at the top to hanging m2; movable_pulley = load on a movable pulley (load) lifted by a hanging effort mass (effort), 2 pulleys; pulley_system = block and tackle with 2 to 6 pulleys (pulleys, load, effort), mechanical advantage = pulleys; collision_1d = two blocks on a frictionless track (m1, m2, u1, u2 with right positive, e coefficient of restitution); projectile = launch (speed, angle in degrees, height of launch); incline_block = block on an incline (angle, mu, mass)',
     },
     values: {
       type: 'object',
       description: 'numbers from the problem in SI units; omit any not given',
-      properties: Object.fromEntries(['orientation', 'k', 'mass', 'rest', 'stretch', 'damping', 'mu', 'length', 'angle', 'double', 'm1', 'm2', 'height', 'load', 'effort', 'u1', 'u2', 'e', 'speed']
+      properties: Object.fromEntries(['orientation', 'k', 'mass', 'rest', 'stretch', 'damping', 'mu', 'length', 'angle', 'double', 'm1', 'm2', 'height', 'load', 'effort', 'pulleys', 'u1', 'u2', 'e', 'speed']
         .map((k) => [k, { type: 'number' }])),
     },
   },
@@ -248,6 +248,8 @@ Vocabulary:
 - speed (m/s) + direction ("left", "right", "up", "down" or degrees: 0 right, 45 up-right, 90 up, 135 up-left).
 - materials: rubber, wood, steel, ice, stone, foam. Leave mass out unless the user gives one.
 - world: gravity (Earth 1, Moon 0.165, Mars 0.38, space 0), airDensity (Earth 1.2, Moon/space 0), friction and bounciness of the floor and ramps (0 to 1).
+
+Changing the current apparatus: when a current apparatus is given and the request changes it ("add 2 more pulleys", "make m2 heavier", "steeper", "stiffer spring", "double the length"), call build_scene with apparatus giving the type and only the values that change; ChaosLab keeps every other current value. Pulley counts: atwood has 1 pulley, movable_pulley has 2, pulley_system has "pulleys". Adding N pulleys to any pulley setup means pulley_system with pulleys = current count + N (2 to 6), load = the heavier or lifted mass, effort = the hanging mass.
 
 Mechanics problems (Class 11, JEE): if the request is a spring-block, pendulum, Atwood machine, block on a table or incline tied over a pulley, movable pulley, 1D collision, projectile or block on an incline, use apparatus with the numbers from the problem, in SI units, and leave groups empty. If the problem says g = 10 m/s², set world gravity 1.02.
 
@@ -341,12 +343,13 @@ Create a new challenge.`;
   return out;
 }
 
-async function build({ prompt, scene, image, provider, history = [], outcome = null }) {
+async function build({ prompt, scene, image, provider, history = [], outcome = null, apparatus = null }) {
   const started = Date.now();
   // Follow-ups ("the ball didn't reach the bottom") need to know what came before and what happened.
   const parts = [`Current scene (JSON):\n${JSON.stringify(describeScene(scene))}`];
   if (history.length) parts.push(`Previous requests in this session, oldest first:\n${history.slice(-3).map((h) => `- "${h.prompt}" -> ${h.result}`).join('\n')}`);
   if (outcome) parts.push(`What happened in the current run (measured):\n${JSON.stringify(outcome)}`);
+  if (apparatus) parts.push(`Current apparatus (to change it, call build_scene with apparatus and only the changed values):\n${JSON.stringify(apparatus)}`);
   parts.push(`Request: ${prompt}`);
   const text = parts.join('\n\n');
   // Gemma sometimes loops, repeating groups until it runs out of tokens. Cap the output and the

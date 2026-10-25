@@ -356,7 +356,7 @@ function drawLink(ctx, l) {
     const first = l.points[0];
     if (first && l.pulleys.length && !l.pulleys[0].movable && Math.hypot(first.x - l.pulleys[0].x, first.y - l.pulleys[0].y) > 40) drawAnchor(ctx, first);
     // neighbouring fixed points close together are the two sides of one wheel
-    const fixed = l.pulleys.filter((p) => !p.movable);
+    for (const fixed of [l.pulleys.filter((p) => !p.movable), l.pulleys.filter((p) => p.movable)])
     for (let i = 0; i < fixed.length; i++) {
       const p = fixed[i], q = fixed[i + 1];
       if (q && Math.hypot(q.x - p.x, q.y - p.y) < 90) {

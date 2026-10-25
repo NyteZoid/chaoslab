@@ -101,6 +101,8 @@ export class Assistant {
         provider: this.provider,
         history: this.history.slice(-3),
         outcome: this.outcome(),
+        // the apparatus in the lab, with its settings, so "add 2 more pulleys" changes it instead of starting over
+        apparatus: this.apparatus?.loaded ? { type: this.apparatus.loaded.type, values: this.apparatus.values } : null,
         image: this.snapshot(), // Gemma sees the current scene, so "make it faster" has a referent
       });
       const label = this.apply(out.call, prompt);
@@ -154,11 +156,26 @@ export class Assistant {
   apply(call, prompt) {
     const args = call.args || {};
     const reason = `Gemma: ${truncate(prompt, 60)}`;
+    if (call.name === 'edit_scene' && args.apparatus && this.apparatus) {
+      // change the current apparatus: keep its values, apply only what Gemma changed
+      const current = this.apparatus.loaded;
+      const type = args.apparatus.type || current?.type || this.apparatus.type;
+      const keep = current && current.type === type ? this.apparatus.values : carryOver(this.apparatus.values, type);
+      this.apparatus.setType(type, { ...keep, ...(args.apparatus.values || {}) });
+      this.apparatus.load(null, reason);
+      return args.note ? 'Apparatus updated' : 'Scene updated';
+    }
+    // an apparatus change without a type means "the current apparatus"
+    if (args.apparatus && !args.apparatus.type && this.apparatus?.loaded) args.apparatus.type = this.apparatus.loaded.type;
     if (call.name === 'build_scene' && args.apparatus?.type && this.apparatus) {
       // a textbook setup: the apparatus panel builds it exactly and shows prediction vs measurement
       const world = { ...DEFAULT_WORLD, timeScale: this.lab.world.timeScale, ...layoutPlan({ world: args.world }, {}, prompt).world };
       this.lab.world = { ...world };
-      this.apparatus.setType(args.apparatus.type, args.apparatus.values || {});
+      // build on the current apparatus: values Gemma did not mention stay as they are
+      const current = this.apparatus.loaded;
+      const type = args.apparatus.type;
+      const keep = !current ? {} : current.type === type ? this.apparatus.values : carryOver(this.apparatus.values, type);
+      this.apparatus.setType(type, { ...keep, ...(args.apparatus.values || {}) });
       this.apparatus.load(null, reason);
       return args.title || this.apparatus.loaded?.reason || 'Apparatus';
     }
@@ -318,6 +335,18 @@ export class Assistant {
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+}
+
+// Moving to a different pulley setup: map the masses across (m1 → load, m2 → effort).
+function carryOver(values, type) {
+  const v = {};
+  if (type === 'pulley_system' || type === 'movable_pulley') {
+    const heavy = Math.max(values.m1 ?? 0, values.m2 ?? 0, values.load ?? 0);
+    const light = Math.min(...[values.m1, values.m2, values.effort].filter((x) => x != null));
+    if (heavy) v.load = heavy;
+    if (Number.isFinite(light)) v.effort = light;
+  }
+  return v;
 }
 
 function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + '…' : s; }
