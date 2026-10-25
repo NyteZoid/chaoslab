@@ -326,11 +326,20 @@ Rules:
 - Leave mass out so the material decides it, unless the challenge is about mass.
 - Make each challenge different from the recent ones listed.`;
 
-async function challenge({ provider, recent = [] }) {
+// The question type is chosen here, not by Gemma, which otherwise asks the same drop race every time.
+const CHALLENGE_TYPES = {
+  first_to_floor: 'which object hits the floor first: a drop race from one height (vary air density, size or material), or a rolling ball vs a sliding box down identical ramps',
+  highest_bounce: 'which object bounces highest: 2 to 4 balls of different materials dropped from one height',
+  farthest: 'which object travels farthest: objects launched at different speeds or angles, or sliding across the floor on different materials',
+  which_shatters: 'which object shatters: breakable objects of different materials dropped from 2 to 5 m',
+};
+async function challenge({ provider, recent = [], recentTypes = [] }) {
   const started = Date.now();
+  const fresh = Object.keys(CHALLENGE_TYPES).filter((t) => !recentTypes.slice(-2).includes(t));
+  const type = fresh[Math.floor(Math.random() * fresh.length)];
   const text = `Recent challenges (avoid repeating them): ${recent.length ? recent.slice(-6).join('; ') : 'none'}.
 
-Create a new challenge.`;
+Create a new challenge with question_type "${type}": ${CHALLENGE_TYPES[type]}. Every object in groups must also be in the checklist and vice versa, one group per object.`;
   let out;
   try {
     out = await (provider === 'local' ? generate : gemini)({ provider, system: CHALLENGE_SYSTEM, text, tools: [CHALLENGE_TOOL], maxTokens: 700, timeoutMs: 18000, temperature: 0.9 });

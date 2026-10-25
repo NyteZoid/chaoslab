@@ -14,6 +14,7 @@ export class Challenge {
     this.els = els;
     this.score = { right: 0, played: 0 };
     this.recent = [];
+    this.recentTypes = [];
     this.active = null;
     els.button.addEventListener('click', () => this.start());
   }
@@ -24,7 +25,7 @@ export class Challenge {
     a.setBusy('challenge');
     let ready = null;
     try {
-      const out = await a.post('/api/challenge', { provider: a.provider, recent: this.recent });
+      const out = await a.post('/api/challenge', { provider: a.provider, recent: this.recent, recentTypes: this.recentTypes });
       ready = this.prepare(out);
       if (!ready) throw new Error('retry');
     } catch (e) {
@@ -38,16 +39,20 @@ export class Challenge {
   }
 
   // Build the scene, measure the outcome invisibly, and work out the options and the answer.
-  prepare(out) {
+  // groups: a reduced set when a first attempt had two winners (see below)
+  prepare(out, only = null) {
     const args = out.call.args || {};
     const type = args.question_type;
-    // Drop and bounce questions only make sense if everything starts in the air, from one height.
-    let groups = (args.groups || []).slice(0, 4).map((g) => ({ ...g, count: 1 }));
+    let groups = only || cleanGroups(args.groups || [], args.question || '');
+    // Drop and bounce questions only make sense if everything starts at rest in the air, from one height.
     if (type === 'first_to_floor' || type === 'highest_bounce' || type === 'which_shatters') {
       const heights = groups.filter((g) => g.place === 'air' && Number(g.height) > 0.3).map((g) => Number(g.height));
-      const h = heights.length ? Math.max(...heights) : 3;
-      groups = groups.map((g) => (String(g.place || 'floor').includes('ramp') ? g : { ...g, place: 'air', height: h }));
+      const h = heights.length ? Math.min(5, Math.max(...heights)) : 3;
+      groups = groups.map((g) => (String(g.place || 'floor').includes('ramp') ? g : { ...g, place: 'air', height: h, speed: 0, direction: undefined }));
     }
+    if (type === 'which_shatters') groups = groups.map((g) => ({ ...g, breakable: true }));
+    if (type === 'farthest' && !groups.some((g) => Number(g.speed) > 0 || String(g.place || '').includes('ramp'))) return null;
+    if (groups.length < 2) return null;
     const { world, bodies } = layoutPlan({ ...args, groups }, {}, args.question || '');
     const reason = `Challenge: ${args.title || 'predict the outcome'}`;
     this.lab.loadScene({ world: { ...DEFAULT_WORLD, timeScale: this.lab.world.timeScale, ...world }, bodies }, reason);
@@ -69,7 +74,8 @@ export class Challenge {
       if (!broke.length) answer = 'none';
       else if (broke.length === measured.length) answer = 'all';
       else if (broke.length === 1) answer = broke[0].id;
-      else return null; // "two out of three" has no single option
+      // "two out of three" has no single option: drop the extra ones and measure again
+      else return this.prepare(out, keep(groups, objects, (s) => !broke.some((m) => m.id === s.id) || s.id === broke[0].id));
       decisive = Math.max(...measured.map((m) => m.floorAt ?? 2)) + 0.6;
     } else {
       const key = { first_to_floor: 'floorAt', farthest: 'distance', highest_bounce: 'bounce' }[type];
@@ -80,9 +86,11 @@ export class Challenge {
       const best = scored.reduce((b, m) => (better(m[key], b[key]) ? m : b));
       const contenders = scored.filter((m) => Math.abs(m[key] - best[key]) <= TIE[type]);
       options.push({ id: 'tie', label: type === 'first_to_floor' ? 'All at the same time' : 'All about the same' });
+      if (type === 'farthest' && best[key] < 0.3) return null; // nothing really moved
       if (contenders.length === scored.length) answer = 'tie';
       else if (contenders.length === 1) answer = best.id;
-      else return null; // two share first place but not all: no option is right
+      // two share first place but not all: drop the extra winners and measure again
+      else return this.prepare(out, keep(groups, objects, (s) => !contenders.some((m) => m.id === s.id) || s.id === best.id));
       decisive = type === 'farthest' ? 7 : Math.max(...scored.map((m) => m.floorAt ?? 1)) + (type === 'highest_bounce' ? 1.6 : 0.5);
     }
     return { args, type, reason, options, answer, measured, decisive: Math.min(decisive, 9), meta: out };
@@ -125,6 +133,7 @@ export class Challenge {
     this.score.played++;
     if (correct) this.score.right++;
     this.recent.push(c.args.title);
+    this.recentTypes.push(c.type);
     this.els.score.textContent = `Score ${this.score.right}/${this.score.played}`;
     const optLabel = (id) => c.options.find((o) => String(o.id) === String(id))?.label || id;
     const { result } = this.assistant.els;
@@ -156,6 +165,36 @@ export class Challenge {
       why.innerHTML = `<p class="answer-meta">Gemma could not explain this one (${esc(e.message)}).</p>`;
     }
   }
+}
+
+// Gemma's groups often disagree with its own question: a box in "which ball…?", two identical
+// objects, several on the same side, or none given a side. Keep one of each distinct object, of the
+// shape the question names, and spread them evenly across the lab so they never overlap.
+const SIDES = { 2: ['center-left', 'center-right'], 3: ['left', 'center', 'right'], 4: ['left', 'center-left', 'center-right', 'right'] };
+function cleanGroups(raw, question) {
+  const wants = /\bball/i.test(question) && !/\bbox/i.test(question) ? 'ball' : /\bbox|block|cube/i.test(question) && !/\bball/i.test(question) ? 'box' : null;
+  const seen = new Set();
+  const groups = [];
+  for (const g of raw) {
+    if (!g || typeof g !== 'object') continue;
+    const shape = g.shape === 'box' ? 'box' : 'ball';
+    if (wants && shape !== wants) continue;
+    const id = `${g.material}|${shape}|${g.size ?? ''}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    groups.push({ ...g, shape, count: 1, arrangement: 'single' });
+    if (groups.length === 4) break;
+  }
+  // objects on ramps keep their place; the rest are spread out
+  const free = groups.filter((g) => !String(g.place || '').includes('ramp'));
+  free.forEach((g, i) => { g.side = (SIDES[free.length] || ['center'])[i]; });
+  return groups;
+}
+
+// The groups whose objects pass the test (bodies are created one per group, in order).
+function keep(groups, objects, test) {
+  const kept = groups.filter((g, i) => objects[i] && test(objects[i]));
+  return kept.length < groups.length && kept.length >= 2 ? kept : [];
 }
 
 // "Steel ball", "Foam ball"; add size or position when two would read the same.
