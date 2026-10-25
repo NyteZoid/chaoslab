@@ -14,3 +14,7 @@ certs/
 .DS_Store
 Thumbs.db
 *.log
+
+# team notes, kept locally
+DEMO.md
+SUBMISSION.md
