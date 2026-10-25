@@ -342,10 +342,12 @@ function applyPromptHints(plan, prompt) {
   const angle = text.match(/(-?\d+(?:\.\d+)?)\s*(?:°|deg|degrees?)\b/);
   const height = text.match(/(?:from|at|height of)\s*(\d+(?:\.\d+)?)\s*(?:m|metres?|meters?)\b/);
   const wantsBreaking = /shatter|break|smash|fragile|crack|crush/.test(text);
+  // "complex", "harder", "tricky" mazes: irregular layout with holes (kept out of the tool schema, which is at its size limit)
+  const complexity = /complex|hard|difficult|tricky|crazy|insane|advanced/.test(text) ? 3 : /medium|more interesting|varied/.test(text) ? 2 : null;
   // "a 32 degree ramp": make sure ramps and paths use the stated angle
   const mentionsRamp = /ramp|slope|incline|path|track/.test(text);
   const ramps = (plan.ramps || []).map((r) => (mentionsRamp && angle && r.angle == null ? { ...r, angle: Math.abs(Number(angle[1])) } : r));
-  const structures = (plan.structures || []).map((s) => (mentionsRamp && angle && s.type === 'ramp_path' && s.angle == null ? { ...s, angle: Math.abs(Number(angle[1])) } : s));
+  const structures = (plan.structures || []).map((s) => (mentionsRamp && angle && s.type === 'ramp_path' && s.angle == null ? { ...s, angle: Math.abs(Number(angle[1])) } : s)).map((s) => (s.type === 'ramp_path' && complexity && s.complexity == null ? { ...s, complexity } : s));
   const groups = (plan.groups || []).map((g) => {
     const out = { ...g };
     const moving = num(out.speed, 0) > 0;

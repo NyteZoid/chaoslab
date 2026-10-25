@@ -108,7 +108,6 @@ const STRUCTURE = {
     name: { type: 'string', description: 'id; the ramps of a ramp_path are called <name>1 (top), <name>2, ...' },
     side: SIDE,
     levels: { type: 'integer', description: 'ramp_path: number of ramps, 2 to 7' },
-    complexity: { type: 'integer', description: 'ramp_path: 1 simple, 2 adds holes the ball drops through, 3 most irregular. Use 3 for "complex" or "harder" mazes.' },
     steps: { type: 'integer', description: 'staircase: number of steps, 2 to 10' },
     angle: { type: 'number', description: 'ramp_path: slope of each ramp in degrees (5 to 45, default 15). Use exactly the angle the user gives.' },
     top_height: { type: 'number', description: 'height of the top in metres' },
@@ -271,7 +270,7 @@ Rules:
 - Start with checklist: one line per ramp and per kind of object the user asked for. Then make exactly one ramp or group per line.
 - Include every object the user asked for and nothing else. One group per distinct kind of object; never repeat a group.
 - Use exactly the angles, heights, speeds and counts the user gives. To change an existing ramp's angle or length, use edit_scene update with its id.
-- For a more complex, harder or different maze, use more levels (6 or 7) and complexity 3. Each build gives a new layout.
+- For a more complex or harder maze, use 6 or 7 levels. Each build gives a new layout.
 - Anything with several connected ramps (path, track, maze, zigzag, marble run) is ONE ramp_path structure, never separate ramps.
 - Give every group a side unless it is placed on or at a ramp. Things that move toward each other start on opposite sides.
 - Use build_scene for a new experiment. Use edit_scene when the request refers to the current scene ("it", "the ball", "didn't", "make it", "more", "again", "faster"): the current scene, the previous requests and what happened in the last run are given, so fix the actual problem.
