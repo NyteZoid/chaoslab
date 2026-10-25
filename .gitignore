@@ -1,0 +1,16 @@
+# dependencies
+node_modules/
+
+# secrets: never commit API keys or certificates
+.env
+.env.*
+!.env.example
+certs/
+*.pem
+
+# local tooling and OS files
+.claude/
+.vscode/
+.DS_Store
+Thumbs.db
+*.log

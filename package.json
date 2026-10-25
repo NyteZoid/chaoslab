@@ -1,0 +1,25 @@
+{
+  "name": "chaoslab",
+  "version": "0.3.0",
+  "description": "A browser physics sandbox where Gemma 4 builds experiments from plain language and explains the results using measured simulation data.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "physics",
+    "simulation",
+    "education",
+    "gemma",
+    "matter-js",
+    "hacktoberfest"
+  ],
+  "license": "MIT",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "matter-js": "^0.20.0"
+  }
+}

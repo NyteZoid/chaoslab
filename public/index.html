@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ChaosLab · Physics sandbox</title>
+  <meta name="description" content="ChaosLab is a browser physics sandbox. Drop balls, boxes and ramps, pick their material, change gravity or friction, and compare every run against the last with recorded energy, speed and collision data.">
+  <meta name="theme-color" content="#070a10">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="ChaosLab · Physics sandbox">
+  <meta property="og:description" content="Change one variable, rerun the experiment, and see exactly what changed: energy, speed and collisions, run against run.">
+  <meta property="og:image" content="og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-ball" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+    <symbol id="i-box" viewBox="0 0 16 16"><rect x="2.75" y="2.75" width="10.5" height="10.5" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+    <symbol id="i-ramp" viewBox="0 0 16 16"><path d="M2 13.25h12M2.5 10.5l11-6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <symbol id="i-grab" viewBox="0 0 16 16"><path d="M8 1.75v12.5M1.75 8h12.5M8 1.75 6.25 3.5M8 1.75 9.75 3.5M8 14.25l-1.75-1.75M8 14.25l1.75-1.75M1.75 8 3.5 6.25M1.75 8l1.75 1.75M14.25 8 12.5 6.25M14.25 8l-1.75 1.75" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+    <symbol id="i-rerun" viewBox="0 0 16 16"><path d="M2.75 8a5.25 5.25 0 1 0 1.6-3.77M2.75 2.5v3h3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 16 16"><path d="M5.5 3.5v9M10.5 3.5v9" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></symbol>
+    <symbol id="i-play" viewBox="0 0 16 16"><path d="M5 3.25v9.5L12.5 8z" fill="currentColor"/></symbol>
+  </svg>
+
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a class="brand" href="./" aria-label="ChaosLab home">
+        <img src="favicon.svg" width="24" height="24" alt="">
+        <span class="brand-name">ChaosLab</span>
+      </a>
+      <p class="tagline">Change one variable. Rerun. See exactly what changed.</p>
+      <div class="actions">
+        <label class="visually-hidden" for="preset">Experiment</label>
+        <select id="preset" class="control"></select>
+        <button id="playPause" class="btn" type="button" title="Pause (Space)">
+          <svg class="icon"><use href="#i-pause"/></svg><span>Pause</span>
+        </button>
+        <button id="rerun" class="btn btn-primary" type="button" title="Rerun from the start (R)">
+          <svg class="icon"><use href="#i-rerun"/></svg><span>Rerun</span>
+        </button>
+        <button id="clear" class="btn btn-ghost" type="button">Clear</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container layout">
+    <section class="stage" aria-label="Simulation">
+      <div class="canvas-wrap">
+        <canvas id="world" aria-label="Physics simulation canvas"></canvas>
+        <div class="run-badge" id="runBadge"></div>
+      </div>
+
+      <div class="toolbar">
+        <div class="segmented" role="radiogroup" aria-label="Tool">
+          <button class="seg active" type="button" role="radio" aria-checked="true" data-tool="ball"><svg class="icon"><use href="#i-ball"/></svg>Ball</button>
+          <button class="seg" type="button" role="radio" aria-checked="false" data-tool="box"><svg class="icon"><use href="#i-box"/></svg>Box</button>
+          <button class="seg" type="button" role="radio" aria-checked="false" data-tool="plank"><svg class="icon"><use href="#i-ramp"/></svg>Ramp</button>
+          <button class="seg" type="button" role="radio" aria-checked="false" data-tool="grab"><svg class="icon"><use href="#i-grab"/></svg>Grab</button>
+        </div>
+        <div class="switches">
+          <label class="switch"><input type="checkbox" id="autoRerun" checked><span></span>Auto-rerun</label>
+          <label class="switch"><input type="checkbox" id="trails" checked><span></span>Trails</label>
+          <label class="switch"><input type="checkbox" id="vectors"><span></span>Velocity</label>
+          <label class="switch"><input type="checkbox" id="effects" checked><span></span>Impacts</label>
+          <label class="switch"><input type="checkbox" id="sound" checked><span></span>Sound</label>
+        </div>
+      </div>
+      <p class="hint">Click the canvas to drop the selected object. Right-click an object to delete it. Space pauses, R reruns.</p>
+
+      <section class="card runs-card">
+        <div class="card-head">
+          <h2 class="overline">Runs</h2>
+          <span class="meta">Select a run to compare against it</span>
+        </div>
+        <ol class="runs" id="runs"></ol>
+      </section>
+    </section>
+
+    <aside class="panel" aria-label="Controls">
+      <section class="card gemma" id="gemmaPanel" aria-labelledby="gemma-title" aria-busy="false">
+        <div class="card-head">
+          <h2 id="gemma-title" class="overline">Ask Gemma 4</h2>
+          <div class="segmented segmented-sm" role="radiogroup" aria-label="Where Gemma runs">
+            <button class="seg active" type="button" role="radio" aria-checked="true" data-provider="cloud">Cloud</button>
+            <button class="seg" type="button" role="radio" aria-checked="false" data-provider="local">On-device</button>
+          </div>
+        </div>
+        <form id="gemmaForm" class="ask" autocomplete="off">
+          <label class="visually-hidden" for="gemmaInput">Describe an experiment or ask a question</label>
+          <textarea id="gemmaInput" rows="2" placeholder="Describe an experiment, or ask why something happened"></textarea>
+          <div class="ask-actions">
+            <button id="gemmaBuild" class="btn btn-primary" type="button"><span class="spinner" aria-hidden="true"></span>Build scene</button>
+            <button id="gemmaExplain" class="btn" type="button"><span class="spinner" aria-hidden="true"></span>Explain</button>
+          </div>
+        </form>
+        <div class="chips" id="gemmaChips"></div>
+        <p class="ask-status" id="gemmaStatus" role="status" aria-live="polite"></p>
+        <div class="answer" id="gemmaResult" aria-live="polite" hidden></div>
+      </section>
+
+      <section class="card">
+        <h2 class="overline">World</h2>
+        <div class="sliders" id="worldSliders"></div>
+      </section>
+
+      <section class="card" aria-labelledby="telemetry-title">
+        <div class="card-head">
+          <h2 id="telemetry-title" class="overline">Telemetry</h2>
+          <label class="visually-hidden" for="metric">Chart metric</label>
+          <select id="metric" class="control control-sm"></select>
+        </div>
+        <canvas id="chart" width="608" height="320" aria-label="Chart of the selected metric over time"></canvas>
+        <div class="legend">
+          <span><i class="sw sw-now"></i>This run</span>
+          <span><i class="sw sw-prev"></i><span id="compareLabel">Previous run</span></span>
+        </div>
+        <dl class="stats" id="stats"></dl>
+      </section>
+
+      <section class="card">
+        <h2 class="overline">Next object</h2>
+        <div class="materials" id="materials" role="radiogroup" aria-label="Material" data-hide="plank"></div>
+        <label class="switch breakable-switch" data-hide="plank"><input type="checkbox" id="breakable"><span></span>Breakable: shatters when hit harder than its threshold</label>
+        <div class="sliders" id="spawnSliders"></div>
+      </section>
+    </aside>
+  </main>
+
+  <footer class="container footer">
+    <p>Built for Hacktoberfest Hack Day Udupi × MOSS at MIT Manipal, October 2026.</p>
+    <p>Physics by <a href="https://github.com/liabru/matter-js" target="_blank" rel="noopener">Matter.js</a> (MIT licence).</p>
+  </footer>
+
+  <script src="/vendor/matter.min.js"></script>
+  <script type="module" src="ui.js"></script>
+</body>
+</html>
