@@ -302,6 +302,7 @@ details.fold[open] > summary.card-head { margin-bottom: var(--s-3); }
 .challenge-row { display: flex; align-items: center; gap: var(--s-3); margin-top: var(--s-2); }
 .btn-outline { flex: 1; justify-content: center; background: transparent; border-color: var(--accent-soft); color: var(--text); }
 .btn-outline:hover { border-color: var(--accent); }
+#challengeBtn { font-size: var(--t-sm); line-height: var(--lh-sm); }
 .challenge-kicker { margin: 0 0 var(--s-1); color: var(--accent); font: 600 var(--t-xs) / var(--lh-xs) var(--font-head); letter-spacing: 0.08em; text-transform: uppercase; }
 .choices { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-2); margin-top: var(--s-3); }
 .choice {
