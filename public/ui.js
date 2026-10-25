@@ -191,10 +191,10 @@ const TOOL_HINTS = {
   ball: 'Click the canvas to drop a ball. Click a ramp to set its exact angle. Right-click an object to delete it.',
   box: 'Click the canvas to drop a box. Click a ramp to set its exact angle. Right-click an object to delete it.',
   plank: 'Click the canvas to place a ramp with the angle and length set below.',
-  spring: 'Spring: click an object or empty space (a fixed anchor), then a second object or point. Esc cancels.',
-  string: 'String: click a support point (or object), then the object to hang from it. Makes a pendulum. Esc cancels.',
+  spring: 'Spring: click the anchor (empty space or an object), then the object, or empty space to hang a new block there. The scene pauses while you build. Esc cancels.',
+  string: 'String: click the support, then the object, or empty space to hang a new bob there (a pendulum). The scene pauses while you build. Esc cancels.',
   pulley: 'Pulley: click to place a fixed pulley disc. Drag it in Grab mode; right-click it to delete. Then use Pulley rope to run a rope over it.',
-  rope: 'Pulley rope: click the first object, then each pulley it passes over (click a pulley disc, or empty space for a new one), then the second object. Esc cancels.',
+  rope: 'Pulley rope: click the first object (or a ceiling point), each pulley it passes over, then the last object. Press Enter to end in empty space with a new block. Esc cancels.',
   grab: 'Grab: drag objects, pulleys and anchors. Drag empty space to pan when zoomed in. Scroll to zoom.',
 };
 let pending = null; // a spring, string or rope being built: { type, refs, points }
@@ -245,6 +245,12 @@ function linkRefAt(w) {
   return { ref: { x: round2(m.x), y: round2(Math.max(0, m.y)) }, at: m };
 }
 
+// A weight created where the user clicked empty space as the free end of a string, spring or rope.
+function weightAt(ref, shape) {
+  const id = lab.addBody({ shape, material: 'steel', size: shape === 'ball' ? 0.15 : 0.3, mass: 1, x: ref.x, y: Math.max(ref.y, 0.2) });
+  return { body: id };
+}
+
 function linkClick(w) {
   if (tool === 'pulley') {
     const m = toM(w.x, w.y);
@@ -254,34 +260,65 @@ function linkClick(w) {
   // a rope clicked on a pulley disc goes over that pulley
   const disc = tool === 'rope' ? lab.pulleyAt(w) : null;
   const { ref } = disc ? { ref: { pulley: disc.id } } : linkRefAt(w);
-  pending ||= { type: tool, refs: [], points: [] };
+  if (!pending) {
+    // hold the scene still while building, so objects don't fall away between clicks
+    pending = { type: tool, refs: [], points: [], resume: !lab.paused };
+    lab.setPaused(true);
+    lab.captureState();
+  }
   pending.refs.push(ref);
-  pending.points.push(ref.body != null ? (() => { const b = lab.allBodies().find((x) => x.plugin.specId === ref.body); return { x: b.position.x, y: b.position.y }; })()
-    : ref.pulley != null ? lab.pulleyTop(ref.pulley) : { ...w });
+  pending.points.push(pointOf(ref, w));
   const refs = pending.refs;
-  const dist = () => { const [a, b] = pending.points; return Math.hypot(b.x - a.x, b.y - a.y) / 100; };
-  if (tool === 'spring' && refs.length === 2) {
-    if (refs.every((r) => r.body == null)) return cancelLink('A spring needs at least one object at an end.');
-    const rest = spawn.springRest > 0 ? spawn.springRest : round2(dist());
-    lab.addLink({ type: 'spring', a: refs[0], b: refs[1], k: spawn.springK, rest, damping: spawn.springDamping });
-    pending = null;
-  } else if (tool === 'string' && refs.length === 2) {
-    if (refs.every((r) => r.body == null)) return cancelLink('A string needs an object at one end.');
-    lab.addLink({ type: 'rod', a: refs[0], b: refs[1], length: round2(dist()) });
-    pending = null;
+  const dist = () => { const [p, q] = pending.points; return Math.hypot(q.x - p.x, q.y - p.y) / 100; };
+
+  if ((tool === 'spring' || tool === 'string') && refs.length === 2) {
+    // two empty clicks: the first is the support, the second becomes a weight (pendulum bob / block)
+    if (refs.every((r) => r.body == null)) refs[1] = weightAt(refs[1], tool === 'string' ? 'ball' : 'box');
+    if (tool === 'spring') {
+      const rest = spawn.springRest > 0 ? spawn.springRest : round2(dist());
+      lab.addLink({ type: 'spring', a: refs[0], b: refs[1], k: spawn.springK, rest, damping: spawn.springDamping });
+    } else {
+      lab.addLink({ type: 'rod', a: refs[0], b: refs[1], length: round2(dist()) });
+    }
+    finishLink();
   } else if (tool === 'rope' && refs.length >= 3 && ref.body != null) {
-    if (refs[0].body == null && refs.length < 3) return;
     lab.addLink({ type: 'rope', points: refs });
-    pending = null;
-  } else if (tool === 'rope' && refs.length === 1 && ref.body == null) {
-    // starting on a fixed point is fine: it is a ceiling support
+    finishLink();
   }
   renderer.pending = pending;
 }
 
-function cancelLink(message) {
+function pointOf(ref, w) {
+  if (ref.body != null) { const b = lab.allBodies().find((x) => x.plugin.specId === ref.body); return { x: b.position.x, y: b.position.y }; }
+  if (ref.pulley != null) return lab.pulleyTop(ref.pulley);
+  return { ...w };
+}
+
+// Enter finishes a rope: if it ends in empty space, a block hangs there.
+function finishRope() {
+  if (!pending || tool !== 'rope' || pending.refs.length < 2) return;
+  const refs = pending.refs;
+  const last = refs[refs.length - 1];
+  if (last.body == null && last.pulley == null) refs[refs.length - 1] = weightAt(last, 'box');
+  else if (last.pulley != null) return; // a rope must end on something
+  lab.addLink({ type: 'rope', points: refs });
+  finishLink();
+  renderer.pending = null;
+}
+
+function finishLink() {
+  const resume = pending?.resume;
   pending = null;
   renderer.pending = null;
+  lab.rerun('Rerun'); // start the new arrangement from rest
+  if (resume) lab.setPaused(false);
+}
+
+function cancelLink(message) {
+  const resume = pending?.resume;
+  pending = null;
+  renderer.pending = null;
+  if (resume) lab.setPaused(false);
   if (message) $('toolHint').textContent = message;
 }
 
@@ -387,6 +424,7 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === '0') { renderer.resetView(); syncViewbar(); }
   else if (e.key === 'g' || e.key === 'G') cycleGrid();
   else if (e.key === 'Escape' && pending) cancelLink(TOOL_HINTS[tool]);
+  else if (e.key === 'Enter' && pending) finishRope();
 });
 
 // ---------- history drawer ----------

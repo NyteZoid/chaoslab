@@ -201,6 +201,22 @@ export class Lab {
     this.emit('change', { t: this.time, reason: `added ${what}` });
   }
 
+  // Make what is on screen the new starting layout (objects where they are now, at rest).
+  // Used before hand-building strings and ropes, so lengths measured now still hold after a rerun.
+  captureState() {
+    for (const s of this.bodies) {
+      if (s.static) continue;
+      const b = this.allBodies().find((x) => x.plugin.specId === s.id && !x.plugin.fragment);
+      if (!b) continue;
+      const p = toM(b.position.x, b.position.y);
+      s.x = Math.round(p.x * 1000) / 1000;
+      s.y = Math.round(p.y * 1000) / 1000;
+      s.angle = Math.round((-b.angle * 180) / Math.PI * 10) / 10;
+      s.vx = 0;
+      s.vy = 0;
+    }
+  }
+
   // ---- stand-alone pulley discs ----
 
   addPulley(x, y, r = 0.15) {

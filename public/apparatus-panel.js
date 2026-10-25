@@ -101,12 +101,12 @@ export class ApparatusPanel {
       if (!b) return;
       // from positions at three equally spaced times (like ticker tape): a = (s₂ − s₁) / Δt²
       m.marks ||= [];
-      const next = [0.2, 0.5, 0.8][m.marks.length];
+      const next = [0.1, 0.25, 0.4][m.marks.length]; // early: fast systems hit the floor or a pulley soon after
       if (next !== undefined && t >= next) m.marks.push({ x: b.x, y: b.y });
       if (m.marks.length === 3) {
         const [p0, p1, p2] = m.marks;
         const s1 = Math.hypot(p1.x - p0.x, p1.y - p0.y), s2 = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-        m.result = `a = ${fmt(Math.max(0, s2 - s1) / 0.09)} m/s²`;
+        m.result = `a = ${fmt(Math.max(0, s2 - s1) / 0.0225)} m/s²`;
         m.done = true;
       }
     } else if (m.kind === 'after_collision') {
