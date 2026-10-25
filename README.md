@@ -2,7 +2,7 @@
 
 **Describe a physics experiment in plain words. Gemma 4 builds it, the simulation runs it, and Gemma explains what happened using the numbers the simulation actually measured.**
 
-ChaosLab is a browser physics sandbox for experimenting without equations. Drop balls, boxes and ramps, pick what they are made of, change gravity, friction or air density, and rerun. Every run is recorded, so you can compare it with the previous one and ask *why* it changed.
+ChaosLab is a browser physics sandbox for experimenting without equations. Drop balls, boxes and ramps, pick what they are made of, change gravity, friction or air density, and rerun. Every run is recorded, so you can compare it with the previous one and ask *why* it changed
 
 Built during **Hacktoberfest x MOSS Hack Day Udupi** (MIT Manipal, 25 October 2026, 10:00 AM to 5:00 PM IST) for the **Best Use of Gemma 4** and **Best Open-Source AI Project** challenges.
 
