@@ -195,7 +195,7 @@ const TOOL_HINTS = {
   string: 'String: click the support, then the object, or empty space to hang a new bob there (a pendulum). The scene pauses while you build. Esc cancels.',
   pulley: 'Pulley: click to place a fixed pulley disc. Drag it in Grab mode; right-click it to delete. Then use Pulley rope to run a rope over it.',
   rope: 'Pulley rope: click the first object (or a ceiling point), each pulley it passes over, then the last object. Press Enter to end in empty space with a new block. Esc cancels.',
-  grab: 'Grab: drag objects, pulleys and anchors. Drag empty space to pan when zoomed in. Scroll to zoom.',
+  grab: 'Grab: drag objects, pulleys and anchors. Scroll or use + and − to zoom.',
 };
 let pending = null; // a spring, string or rope being built: { type, refs, points }
 
@@ -322,13 +322,12 @@ function cancelLink(message) {
   if (message) $('toolHint').textContent = message;
 }
 
-// Dragging: pulleys/anchors in grab mode, or panning the view over empty space.
+// Dragging pulleys and anchors in Grab mode (objects are dragged by Matter.js itself).
 let drag = null;
 
 canvas.addEventListener('pointerdown', (e) => {
   const p = canvasPoint(e);
   const w = renderer.toWorld(p);
-  if (e.button === 1 || (e.button === 0 && e.shiftKey)) { drag = { pan: true, last: p }; e.preventDefault(); return; }
   if (e.button !== 0) return;
   if (LINK_TOOLS.has(tool)) { linkClick(w); return; }
   if (tool === 'grab') {
@@ -340,10 +339,7 @@ canvas.addEventListener('pointerdown', (e) => {
   const hit = hitId && lab.spec(hitId);
   if (hit && hit.static) { selectFixed(hit.id); return; }
   selectFixed(null);
-  if (tool === 'grab') {
-    if (!hitId) { drag = { pan: true, last: p }; try { canvas.setPointerCapture(e.pointerId); } catch { /* synthetic events */ } }
-    return;
-  }
+  if (tool === 'grab') return; // Matter's mouse handles dragging objects
   const m = toM(w.x, w.y);
   if (m.y <= 0) return;
   lab.addBody({ shape: tool, x: m.x, y: m.y, ...spawnSpec() });
@@ -352,7 +348,6 @@ canvas.addEventListener('pointerdown', (e) => {
 canvas.addEventListener('pointermove', (e) => {
   const p = canvasPoint(e);
   const w = renderer.toWorld(p);
-  if (drag?.pan) { renderer.pan(p.x - drag.last.x, p.y - drag.last.y); drag.last = p; return; }
   if (drag?.point) {
     const m = toM(w.x, w.y);
     lab.moveLinkPoint(drag.point.link, drag.point.slot, m.x, m.y);

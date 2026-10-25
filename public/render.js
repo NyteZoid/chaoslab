@@ -116,7 +116,7 @@ export class Renderer {
 
   setZoom(zoom, around = null) {
     const v = this.view;
-    const z = Math.min(6, Math.max(0.5, zoom));
+    const z = Math.min(6, Math.max(1, zoom));
     if (around) { // keep the point under the cursor fixed
       const w = this.toWorld(around);
       v.cx = w.x - (around.x - WIDTH / 2) / z;
@@ -141,6 +141,9 @@ export class Renderer {
   // Matter's mouse (used for grabbing) must see the same world coordinates we draw.
   _syncMouse() {
     const v = this.view, m = this.lab.mouse;
+    const halfW = WIDTH / (2 * v.zoom), halfH = HEIGHT / (2 * v.zoom);
+    v.cx = v.zoom <= 1 ? WIDTH / 2 : Math.min(WIDTH - halfW, Math.max(halfW, v.cx));
+    v.cy = v.zoom <= 1 ? HEIGHT / 2 : Math.min(HEIGHT - halfH, Math.max(halfH, v.cy));
     Matter.Mouse.setScale(m, { x: 1 / v.zoom, y: 1 / v.zoom });
     Matter.Mouse.setOffset(m, { x: v.cx - WIDTH / (2 * v.zoom), y: v.cy - HEIGHT / (2 * v.zoom) });
   }

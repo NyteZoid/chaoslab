@@ -2,6 +2,10 @@
 
 All notable changes to ChaosLab. Newest first.
 
+## 0.9.2 (2026-10-25): No more accidental panning
+
+- Dragging the background no longer pans the view (it often happened when trying to grab something). Zoom stays, but the view always stays over the lab and cannot zoom out past 100%, so no blank space appears.
+
 ## 0.9.1 (2026-10-25): UI polish inspired by PhET and Algodoo
 
 - Vertical tool rail beside the canvas, grouped into Objects, Mechanics and Move (Algodoo-style).
@@ -26,7 +30,7 @@ All notable changes to ChaosLab. Newest first.
 
 - New tools usable in any scene, including an empty one: Spring (set stiffness, natural length, damping), String (pendulums) and Pulley rope over as many pulleys as you click.
 - Pulleys and spring/string anchors can be dragged in Grab mode; the coordinates of the cursor and of whatever is under it (pulley, anchor, object, ramp) are shown live.
-- View bar on the canvas: play/pause, rerun, zoom in/out (also mouse wheel), reset view, grid spacing (1 m, 0.5 m, 0.25 m, 2 m, off) and full screen; drag empty space to pan. Keyboard: + − 0 G F.
+- View bar on the canvas: play/pause, rerun, zoom in/out (also mouse wheel), reset view, grid spacing (1 m, 0.5 m, 0.25 m, 2 m, off) and full screen; keyboard: + − 0 G.
 - Runs moved into a History drawer opened from the header; World and Next object settings moved under the canvas.
 
 ## 0.7.1 (2026-10-25): Gemma remembers the apparatus; pulley systems
