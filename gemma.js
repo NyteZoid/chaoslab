@@ -247,6 +247,73 @@ Rules:
 - Set breakable true only when the user mentions breaking, shattering, smashing or fragile things.
 - note: one sentence on what to watch for.`;
 
+// ---------- predict-then-run challenges ----------
+// Gemma designs a scene and a question; the answer is measured by running the simulation,
+// never decided by the model.
+
+const CHALLENGE_TOOL = {
+  name: 'make_challenge',
+  description: 'Create a predict-then-run physics challenge.',
+  parameters: {
+    type: 'object',
+    properties: {
+      checklist: BUILD_TOOLS[0].parameters.properties.checklist,
+      title: { type: 'string', description: 'short catchy title' },
+      question: { type: 'string', description: 'the question shown to the player, matching question_type, e.g. "Which ball hits the floor first?"' },
+      question_type: {
+        type: 'string',
+        enum: ['first_to_floor', 'farthest', 'highest_bounce', 'which_shatters'],
+        description: 'first_to_floor = which object first touches the floor; farthest = which object ends furthest from where it started, horizontally; highest_bounce = whose first bounce is highest; which_shatters = which breakable objects shatter',
+      },
+      concept: { type: 'string', description: 'the physics idea being tested, e.g. "mass does not change fall time"' },
+      world: BUILD_TOOLS[0].parameters.properties.world,
+      structures: BUILD_TOOLS[0].parameters.properties.structures,
+      ramps: BUILD_TOOLS[0].parameters.properties.ramps,
+      groups: {
+        type: 'array',
+        items: GROUP,
+        description: '2 to 4 single objects (count 1 each) that the question compares, each with its own side',
+      },
+    },
+    required: ['checklist', 'title', 'question', 'question_type', 'concept', 'groups'],
+  },
+};
+
+const CHALLENGE_SYSTEM = `You design short predict-then-run challenges for ChaosLab, a 2D physics lab. The player guesses the outcome, then the simulation runs and measures the real answer.
+Pick setups where everyday intuition is often WRONG, so the result teaches something. Good ideas:
+- heavy vs light balls dropped together (same time without air; with thick air the light, large one is slower)
+- bounce height depends on material, not mass (steel bounces high, stone barely)
+- a rolling ball vs a sliding box down identical ramps; friction on ice vs rubber
+- the same drop on the Moon vs Earth; thick air vs vacuum
+- breakable ice vs stone vs wood dropped from the same height (which_shatters)
+- objects launched at different angles or speeds (farthest)
+Rules:
+- Use 2 to 4 single objects (count 1), each its own group with its own side (left, center-left, center, center-right, right), so they are easy to tell apart. Give them different materials (or sizes) so the question has a real answer.
+- Match the scene to question_type: first_to_floor and highest_bounce need objects in the air (place air with a height) or on ramps; farthest needs launches or ramps; which_shatters needs breakable true and a drop of 1 to 5 m.
+- Describe the scene in the same vocabulary as scene building (world, structures, ramps, groups); never give coordinates.
+- question: one short neutral question. Never include hints, explanations or the answer in it (the concept field is for the physics idea, shown only after the reveal).
+- The world must really contain what the challenge is about: thick air means airDensity 8 to 10, no air means airDensity 0, the Moon means gravity 0.165 and airDensity 0.
+- Leave mass out so the material decides it, unless the challenge is about mass.
+- Make each challenge different from the recent ones listed.`;
+
+async function challenge({ provider, recent = [] }) {
+  const started = Date.now();
+  const text = `Recent challenges (avoid repeating them): ${recent.length ? recent.slice(-6).join('; ') : 'none'}.
+
+Create a new challenge.`;
+  let out;
+  try {
+    out = await (provider === 'local' ? generate : gemini)({ provider, system: CHALLENGE_SYSTEM, text, tools: [CHALLENGE_TOOL], maxTokens: 700, timeoutMs: 18000, temperature: 0.9 });
+    if (provider !== 'local') out = { ...out, provider: 'cloud', ms: Date.now() - started };
+  } catch {
+    out = null;
+  }
+  if (!out?.call) out = { ...(await generate({ provider, system: CHALLENGE_SYSTEM, text, tools: [CHALLENGE_TOOL], maxTokens: 700, timeoutMs: 18000, temperature: 1 })), ms: Date.now() - started };
+  if (!out.call) throw new Error('Gemma could not make a challenge. Try again.');
+  console.log(`[challenge] ${out.provider} ${out.ms} ms -> ${JSON.stringify(out.call.args)}`);
+  return out;
+}
+
 async function build({ prompt, scene, image, provider, history = [], outcome = null }) {
   const started = Date.now();
   // Follow-ups ("the ball didn't reach the bottom") need to know what came before and what happened.
@@ -420,4 +487,4 @@ async function fetchWithTimeout(url, opts, ms) {
   }
 }
 
-module.exports = { explain, build, status, warmLocal };
+module.exports = { explain, build, challenge, status, warmLocal };

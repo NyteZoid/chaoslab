@@ -2,6 +2,12 @@
 
 All notable changes to ChaosLab. Newest first.
 
+## 0.6.0 (2026-10-25): Predict-then-run challenges
+
+- "Challenge me" in the Gemma panel: Gemma 4 designs a scene and a neutral question (which hits the floor first, travels farthest, bounces highest, or shatters) through a `make_challenge` function call.
+- The answer is measured, not guessed: ChaosLab runs the scene ahead invisibly and scores the options from the physics. Challenges without one clear answer are regenerated.
+- The player picks, the experiment runs live, and the reveal shows the measured numbers, the concept, and Gemma's explanation of why, including the intuition behind a wrong guess. Score kept per session.
+
 ## 0.5.0 (2026-10-25): Exact ramp angles, black and red theme
 
 - Click any ramp (including ones Gemma builds) to edit it: exact angle and length by slider or typed value, or delete it. Objects resting on it move with it.

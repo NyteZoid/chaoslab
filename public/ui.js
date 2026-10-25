@@ -6,6 +6,7 @@ import { PRESETS } from './presets.js';
 import { MATERIALS, DEFAULT_MATERIAL, massFor, breakEnergyFor } from './materials.js';
 import { ImpactSound } from './sound.js';
 import { Assistant } from './assistant.js';
+import { Challenge } from './challenge.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('world');
@@ -479,6 +480,10 @@ const assistant = new Assistant({
   },
 });
 window.ChaosLab.assistant = assistant;
+assistant.els.challenge = $('challengeBtn');
+
+const challenge = new Challenge({ lab, telemetry, assistant, els: { button: $('challengeBtn'), score: $('challengeScore') } });
+window.ChaosLab.challenge = challenge;
 
 setMaterial(DEFAULT_MATERIAL);
 setTool('ball');

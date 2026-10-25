@@ -250,13 +250,19 @@ export class Assistant {
 
   setBusy(kind) {
     this.busy = !!kind;
-    const { build, explain, input, result, status } = this.els;
+    const { build, explain, input, result, status, challenge } = this.els;
     build.disabled = explain.disabled = input.disabled = this.busy;
+    if (challenge) challenge.disabled = this.busy;
     build.classList.toggle('loading', kind === 'build');
     explain.classList.toggle('loading', kind === 'explain');
+    challenge?.classList.toggle('loading', kind === 'challenge');
     this.els.panel.setAttribute('aria-busy', this.busy);
     if (kind) {
-      status.textContent = kind === 'build' ? 'Gemma is building the scene…' : 'Gemma is reading the measurements…';
+      status.textContent = {
+        build: 'Gemma is building the scene…',
+        explain: 'Gemma is reading the measurements…',
+        challenge: 'Gemma is designing a challenge…',
+      }[kind];
       result.hidden = false;
       result.className = 'answer skeleton';
       result.innerHTML = '<span></span><span></span><span></span>';

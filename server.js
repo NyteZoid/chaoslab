@@ -44,6 +44,7 @@ function send(res, status, body) {
 const API = {
   '/api/explain': (body) => gemma.explain(body),
   '/api/build': (body) => gemma.build(body),
+  '/api/challenge': (body) => gemma.challenge(body),
   '/api/warm': () => gemma.warmLocal().then((ok) => ({ ok })),
 };
 

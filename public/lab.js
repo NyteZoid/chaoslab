@@ -75,20 +75,32 @@ export class Lab {
     try {
       for (let i = 0; i < steps; i++) {
         Engine.update(this.engine, 1000 / STEP_TO_SEC);
+        const t = (i + 1) / STEP_TO_SEC;
         for (const b of this.liveBodies()) {
-          if (b.fragment) continue;
-          const r = report.get(b.id) || { id: b.id, minY: Infinity, floorAt: null };
+          const spec = this.bodies.find((s) => s.id === b.id);
+          let r = report.get(b.id);
+          if (!r) {
+            r = { id: b.id, start: spec ? { x: spec.x, y: spec.y } : { x: b.x, y: b.y }, minY: Infinity, floorAt: null, bounce: 0, shattered: false };
+            report.set(b.id, r);
+          }
+          if (b.fragment) { r.shattered = true; continue; }
+          const rest = spec ? (spec.shape === 'ball' ? spec.size : spec.size / 2) : 0.2;
           r.minY = Math.min(r.minY, b.y);
           r.end = { x: b.x, y: b.y };
-          const spec = this.bodies.find((s) => s.id === b.id);
-          const rest = spec ? (spec.shape === 'ball' ? spec.size : spec.size / 2) : 0.2;
-          if (r.floorAt === null && b.y < rest + 0.08) r.floorAt = Math.round((i / STEP_TO_SEC) * 10) / 10;
-          report.set(b.id, r);
+          if (r.floorAt === null && b.y < rest + 0.08) r.floorAt = Math.round(t * 100) / 100;
+          // first bounce: highest point reached in the 3 s after first touching the floor
+          if (r.floorAt !== null && t - r.floorAt < 3) r.bounce = Math.max(r.bounce, b.y - rest);
         }
       }
     } finally {
       this.muted = false;
       this.runner.enabled = wasRunning && !this.paused;
+    }
+    // fragments carry their parent's id; an object that shattered keeps its last whole position
+    for (const r of report.values()) {
+      if (!r.end) r.end = { ...r.start };
+      r.distance = Math.round(Math.abs(r.end.x - r.start.x) * 100) / 100;
+      r.bounce = Math.round(r.bounce * 100) / 100;
     }
     this.rerun(this.lastReason);
     return [...report.values()];

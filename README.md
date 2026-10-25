@@ -14,6 +14,8 @@ Built during **Hacktoberfest x MOSS Hack Day Udupi** (MIT Manipal, 25 October 20
 - **Explanations grounded in data.** Gemma receives the measured telemetry of the current run (and the previous run when comparing) plus a screenshot of the canvas, then explains the result quoting real numbers, with a before/after table and a suggested next experiment.
 - **Real-feeling physics.** Six materials (rubber, wood, steel, ice, stone, foam) with their own friction, bounce, density and toughness; quadratic air drag; Coulomb friction; correct rolling.
 - **Breakable objects.** Objects shatter into fragments when one impact delivers more energy than their threshold (toughness × mass). Fragments are fully simulated and can break again.
+- **Predict-then-run challenges.** Gemma designs a scene and a question where intuition often fails; you guess, the simulation runs, and the correct answer is measured from the physics, not decided by the model. Gemma then explains why, taking your guess into account.
+- **Exact ramps.** Click any ramp to set its angle and length precisely; every ramp shows its angle.
 - **Compare runs.** Moving a slider reruns the scene from the same starting point and overlays the new run on the old one in the chart.
 - **Works offline.** Switch to *On-device* to run Gemma 4 E4B locally through Ollama. The cloud mode also falls back to it automatically when the free tier is rate-limited or unavailable.
 
@@ -37,12 +39,13 @@ Gemma 4 overview and docs: https://ai.google.dev/gemma
 
 ## How we call Gemma 4 through the Gemini API
 
-All calls go through our server ([`gemma.js`](gemma.js)) so the API key never reaches the browser. The server sends `POST https://generativelanguage.googleapis.com/v1beta/models/gemma-4-26b-a4b-it:generateContent` with the key in the `x-goog-api-key` header, in two ways:
+All calls go through our server ([`gemma.js`](gemma.js)) so the API key never reaches the browser. The server sends `POST https://generativelanguage.googleapis.com/v1beta/models/gemma-4-26b-a4b-it:generateContent` with the key in the `x-goog-api-key` header, in three ways:
 
 1. **Build a scene (function calling).** The request includes a system instruction, the user's sentence, a short summary of the current scene, and two function declarations, `build_scene` and `edit_scene`, with `toolConfig.functionCallingConfig.mode = "ANY"` so Gemma must answer with a tool call. The tool arguments (a checklist, structures such as a zigzag ramp path, ramps and groups of objects) are turned into exact positions by [`public/layout.js`](public/layout.js). Follow-up requests also send the previous requests, what happened in the current run and a screenshot of the canvas, so Gemma can fix the scene you are looking at. Ramp paths are then checked by running the physics ahead invisibly. See `build()` and `BUILD_TOOLS` in [`gemma.js`](gemma.js).
-2. **Explain a result (multimodal input, JSON output).** The request includes the measured telemetry as JSON **and a JPEG screenshot of the simulation canvas** (`inlineData`), with `responseMimeType: "application/json"` and a `responseSchema` so Gemma returns a headline, an explanation, a table of numbers and a suggested next experiment. See `explain()` and `EXPLAIN_SCHEMA` in [`gemma.js`](gemma.js).
+2. **Predict-then-run challenges (function calling).** A `make_challenge` function declaration asks Gemma for a scene plus a neutral question (which object hits the floor first, travels farthest, bounces highest or shatters). ChaosLab measures the correct answer by running the physics ahead invisibly; the model never decides it. See `challenge()` in [`gemma.js`](gemma.js) and [`public/challenge.js`](public/challenge.js).
+3. **Explain a result (multimodal input, JSON output).** The request includes the measured telemetry as JSON **and a JPEG screenshot of the simulation canvas** (`inlineData`), with `responseMimeType: "application/json"` and a `responseSchema` so Gemma returns a headline, an explanation, a table of numbers and a suggested next experiment. See `explain()` and `EXPLAIN_SCHEMA` in [`gemma.js`](gemma.js).
 
-Both use `thinkingConfig.thinkingLevel = "minimal"` for speed. If the Gemini API is rate-limited, errors or times out, the same request is sent to the local Gemma 4 E4B through Ollama's `/api/chat` endpoint, and the answer is labelled as on-device.
+All use `thinkingConfig.thinkingLevel = "minimal"` for speed. If the Gemini API is rate-limited, errors or times out, the same request is sent to the local Gemma 4 E4B through Ollama's `/api/chat` endpoint, and the answer is labelled as on-device.
 
 ## How Gemma 4 is used
 

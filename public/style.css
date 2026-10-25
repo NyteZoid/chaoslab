@@ -213,6 +213,30 @@ a:hover { text-decoration: underline; }
 .numbers td + td { padding-left: var(--s-3); }
 .numbers tbody td:last-child { color: var(--text); font-weight: 600; }
 
+.challenge-row { display: flex; align-items: center; gap: var(--s-3); margin-top: var(--s-2); }
+.btn-outline { flex: 1; justify-content: center; background: transparent; border-color: var(--accent-soft); color: var(--text); }
+.btn-outline:hover { border-color: var(--accent); }
+.challenge-kicker { margin: 0 0 var(--s-1); color: var(--accent); font: 600 var(--t-xs) / var(--lh-xs) var(--font-head); letter-spacing: 0.08em; text-transform: uppercase; }
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-2); margin-top: var(--s-3); }
+.choice {
+  min-height: 36px; padding: var(--s-2) var(--s-3); text-align: left; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  font-size: var(--t-xs); line-height: var(--lh-xs); font-weight: 500;
+  transition: border-color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.choice:hover:not(:disabled) { border-color: var(--accent); }
+.choice:disabled { cursor: default; }
+.choice.picked { border-color: var(--text); }
+.choice.right { border-color: #22c55e; background: rgba(34, 197, 94, 0.12); }
+.choice.wrong { border-color: var(--accent); background: rgba(239, 68, 68, 0.12); }
+.verdict { margin: var(--s-3) 0 0; padding: var(--s-2) var(--s-3); border-radius: var(--radius-inner); font-weight: 600; }
+.verdict.ok { background: rgba(34, 197, 94, 0.12); color: #4ade80; }
+.verdict.miss { background: rgba(239, 68, 68, 0.12); color: #f87171; }
+.concept { color: var(--muted); font-size: var(--t-xs); line-height: var(--lh-xs); }
+.why { margin-top: var(--s-2); }
+.why.skeleton { display: grid; gap: var(--s-2); }
+.why.skeleton span { height: 12px; border-radius: var(--radius-inner); background: linear-gradient(90deg, var(--line) 0%, var(--line-strong) 50%, var(--line) 100%); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }
+
 .understood-label { margin: var(--s-3) 0 0; color: var(--muted); font-size: var(--t-xs); line-height: var(--lh-xs); }
 .understood { margin: var(--s-1) 0 0; padding-left: var(--s-4); font-size: var(--t-xs); line-height: var(--lh-xs); }
 .understood li + li { margin-top: var(--s-1); }
