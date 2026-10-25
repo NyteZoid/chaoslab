@@ -94,6 +94,63 @@ export const APPARATUS = {
     },
   },
 
+  force_block: {
+    name: 'Block pulled by a force (with friction)',
+    params: [
+      p('mass', 'Block mass m', 0.5, 50, 0.5, 'kg', 5),
+      p('force', 'Applied force F', 0, 200, 1, 'N', 20),
+      p('angle', 'Force angle above horizontal θ', -60, 80, 1, '°', 0),
+      p('mu', 'Friction μ', 0, 1, 0.01, '', 0.2),
+      p('speed', 'Initial speed u', 0, 10, 0.1, 'm/s', 0),
+    ],
+    // Newton's second law with friction: N = mg − F sin θ, f = μN, a = (F cos θ − f) / m
+    build(v, g) {
+      const gg = G * g, th = v.angle * DEG;
+      const N = Math.max(0, v.mass * gg - v.force * Math.sin(th));
+      const fMax = v.mu * N, Fx = v.force * Math.cos(th);
+      const moving = v.speed > 0.01;
+      const net = moving ? Fx - fMax : Math.max(0, Fx - fMax);
+      const a = net / v.mass;
+      const theory = [
+        ['Normal force N = mg − F sin θ', `${r2(N)} N`],
+        ['Acceleration (F cos θ − μN)/m', `${r2(a)} m/s²${a < 0 ? ' (slowing down)' : !moving && Fx <= fMax ? ' (friction holds it)' : ''}`],
+        ['Friction', `${r2(moving || Fx > fMax ? fMax : Fx)} N`],
+        ['Net force', `${r2(Math.max(net, moving ? net : 0))} N`],
+      ];
+      if (a < 0) theory.push(['Stopping distance u²/2|a|', `${r2((v.speed * v.speed) / (2 * -a))} m`]);
+      return {
+        world: { airDensity: 0, friction: 1 },
+        bodies: [{ key: 'm', shape: 'box', material: 'wood', size: 0.4, mass: v.mass, x: 1.2, y: 0.2, vx: v.speed, friction: v.mu ** 2 }],
+        links: v.force > 0 ? [{ type: 'force', body: 'm', F: v.force, angle: v.angle }] : [],
+        theory,
+      };
+    },
+  },
+
+  contact_blocks: {
+    name: 'Two blocks in contact, pushed',
+    params: [
+      p('m1', 'Pushed block m₁', 0.5, 50, 0.5, 'kg', 4),
+      p('m2', 'Front block m₂', 0.5, 50, 0.5, 'kg', 7),
+      p('force', 'Push F', 1, 200, 1, 'N', 17),
+      p('mu', 'Friction μ', 0, 1, 0.01, '', 0),
+    ],
+    build(v, g) {
+      const gg = G * g, M = v.m1 + v.m2;
+      const a = Math.max(0, (v.force - v.mu * M * gg) / M);
+      const contact = v.m2 * a + v.mu * v.m2 * gg;
+      return {
+        world: { airDensity: 0, friction: 1 },
+        bodies: [
+          { key: 'm1', shape: 'box', material: 'wood', size: 0.4, mass: v.m1, x: 1.2, y: 0.2, friction: v.mu ** 2 },
+          { key: 'm2', shape: 'box', material: 'steel', size: 0.4, mass: v.m2, x: 1.605, y: 0.2, friction: v.mu ** 2 },
+        ],
+        links: [{ type: 'force', body: 'm1', F: v.force, angle: 0 }],
+        theory: [['Acceleration F/(m₁+m₂) (minus friction)', `${r2(a)} m/s²`], ['Contact force on m₂', `${r2(a > 0 ? contact : Math.min(v.force, contact))} N`]],
+      };
+    },
+  },
+
   table_pulley: {
     name: 'Block on table + hanging mass',
     params: [

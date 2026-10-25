@@ -9,6 +9,8 @@ const MEASURE = {
   pendulum: { key: 'b1', kind: 'period', axis: 'vx' },
   atwood: { key: 'm1', kind: 'accel' },
   table_pulley: { key: 'm2', kind: 'accel' },
+  force_block: { key: 'm', kind: 'accel' },
+  contact_blocks: { key: 'm2', kind: 'accel' },
   two_pulley_table: { key: 'm2', kind: 'accel' },
   incline_pulley: { key: 'm2', kind: 'accel' },
   movable_pulley: { key: 'M', kind: 'accel' },
@@ -99,14 +101,14 @@ export class ApparatusPanel {
     } else if (m.kind === 'accel') {
       const b = this.body(m.key);
       if (!b) return;
-      // from positions at three equally spaced times (like ticker tape): a = (s₂ − s₁) / Δt²
-      m.marks ||= [];
-      const next = [0.1, 0.25, 0.4][m.marks.length]; // early: fast systems hit the floor or a pulley soon after
-      if (next !== undefined && t >= next) m.marks.push({ x: b.x, y: b.y });
-      if (m.marks.length === 3) {
-        const [p0, p1, p2] = m.marks;
-        const s1 = Math.hypot(p1.x - p0.x, p1.y - p0.y), s2 = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-        m.result = `a = ${fmt(Math.max(0, s2 - s1) / 0.0225)} m/s²`;
+      // least-squares fit of distance travelled, s = s₀ + u·t + ½·a·t², over 0.05–0.5 s:
+      // robust to the jolt when a rope goes taut and to tiny displacements in slow systems
+      m.pts ||= [];
+      m.origin ||= { x: b.x, y: b.y };
+      if (t >= 0.05 && t <= 0.5) m.pts.push([t, Math.hypot(b.x - m.origin.x, b.y - m.origin.y)]);
+      if (t > 0.5 && m.pts.length > 5) {
+        const acc = 2 * fitQuadratic(m.pts);
+        m.result = acc < -0.05 ? `a = ${fmt(-acc)} m/s² (slowing down)` : `a = ${fmt(Math.max(0, acc))} m/s²`;
         m.done = true;
       }
     } else if (m.kind === 'after_collision') {
@@ -138,6 +140,18 @@ export class ApparatusPanel {
     this.els.measured.textContent = !this.loaded ? 'Load the apparatus to measure it.'
       : m?.result ? `Measured: ${m.result}` : 'Measuring…';
   }
+}
+
+// Coefficient of t² in the least-squares fit y = c0 + c1·t + c2·t².
+function fitQuadratic(pts) {
+  let S0 = 0, S1 = 0, S2 = 0, S3 = 0, S4 = 0, Y0 = 0, Y1 = 0, Y2 = 0;
+  for (const [t, y] of pts) {
+    const t2 = t * t;
+    S0 += 1; S1 += t; S2 += t2; S3 += t2 * t; S4 += t2 * t2; Y0 += y; Y1 += t * y; Y2 += t2 * y;
+  }
+  const det = (a, b, c, d, e, f, g, h, i) => a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+  const D = det(S0, S1, S2, S1, S2, S3, S2, S3, S4);
+  return D ? det(S0, S1, Y0, S1, S2, Y1, S2, S3, Y2) / D : 0;
 }
 
 function esc(s) {

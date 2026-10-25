@@ -123,7 +123,8 @@ export class Lab {
     // links may name bodies by the temporary key an apparatus builder gave them
     const idOf = new Map(this.bodies.filter((b) => b.key).map((b) => [b.key, b.id]));
     const ref = (r) => (r && r.body != null ? { ...r, body: idOf.get(r.body) ?? r.body } : r); // keep dx/dy offsets
-    this.links = (scene.links || []).map((l) => (l.type === 'rope'
+    this.links = (scene.links || []).map((l) => (l.type === 'force' ? { ...l, body: idOf.get(l.body) ?? l.body }
+      : l.type === 'rope'
       ? { ...l, points: l.points.map(ref) }
       : { ...l, a: ref(l.a), b: ref(l.b) }));
     this.rerun(reason);
@@ -454,7 +455,9 @@ export class Lab {
       const mu = combine(this._surface(A).friction, this._surface(B).friction);
       const n = pair.collision.normal;
       const top = A.isStatic ? B : B.isStatic ? A : (A.position.y < B.position.y ? A : B);
-      const jMax = mu * top.mass * Math.abs(gStep * n.y);
+      // an applied force pulling up at an angle lightens the contact: N = mg − F sin θ
+      const lift = ((top.plugin.lift || 0) * PX_PER_M) / (STEP_TO_SEC * STEP_TO_SEC);
+      const jMax = mu * Math.max(0, top.mass * Math.abs(gStep) - lift) * Math.abs(n.y);
       if (!jMax) continue;
 
       let cx = 0, cy = 0;

@@ -37,6 +37,15 @@ export class Linker {
         this.live.push({ spec, centre: { x: spec.x * PX, y: this.lab.toPxY(spec.y) }, r: spec.r * PX });
         continue;
       }
+      if (spec.type === 'force') {
+        // a constant applied force (N) on one body, e.g. "pulled with 16 N at 15° above horizontal"
+        const body = bodyOf(spec.body);
+        if (body) {
+          body.plugin.lift = spec.F * Math.sin(((spec.angle || 0) * Math.PI) / 180); // used by friction
+          this.live.push({ spec, body });
+        }
+        continue;
+      }
       if (spec.type === 'rope') {
         // a rope over a pulley disc touches both sides of the wheel: expand each disc into its
         // left and right contact points, in the order the rope meets them
@@ -81,7 +90,11 @@ export class Linker {
   beforeStep() {
     const dt = this.lab.engine.timing.timeScale / STEP; // seconds
     for (const l of this.live) {
-      if (l.spec.type === 'spring') applySpring(l, dt);
+      if (l.spec.type === 'force') {
+        const a = (l.spec.angle || 0) * Math.PI / 180;
+        const v = vel(l.body);
+        setVel(l.body, { x: v.x + (l.spec.F * Math.cos(a) * dt) / l.body.mass, y: v.y + (l.spec.F * Math.sin(a) * dt) / l.body.mass });
+      } else if (l.spec.type === 'spring') applySpring(l, dt);
       else if (l.spec.type === 'rope') for (let i = 0; i < ROPE_ITERATIONS; i++) solveRopeVelocity(l);
     }
   }
@@ -116,7 +129,9 @@ export class Linker {
 
   // Geometry for drawing.
   drawable() {
-    return this.live.map((l) => (l.spec.type === 'pulley'
+    return this.live.map((l) => (l.spec.type === 'force'
+      ? { type: 'force', at: l.body.position, angle: l.spec.angle || 0, F: l.spec.F }
+      : l.spec.type === 'pulley'
       ? { type: 'pulley', centre: l.centre, r: l.r, id: l.spec.id }
       : l.spec.type === 'rope'
       ? { type: 'rope', points: l.points.map(pos), pulleys: l.points.slice(1, -1).filter((p) => !p.disc).map((p) => ({ ...pos(p), movable: !!p.body })), slack: ropeLength(l.points) < l.length - 2, discs: l.points.some((p) => p.disc) }

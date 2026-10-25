@@ -450,7 +450,17 @@ function drawLink(ctx, l) {
   ctx.save();
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  if (l.type === 'pulley') {
+  if (l.type === 'force') {
+    // applied force: an arrow from the block, length growing with F
+    const a = (l.angle * Math.PI) / 180, len = 30 + Math.min(70, l.F * 2);
+    const x2 = l.at.x + Math.cos(a) * len, y2 = l.at.y - Math.sin(a) * len;
+    arrow(ctx, l.at.x, l.at.y, x2, y2, '#f2b84b');
+    ctx.fillStyle = '#f2b84b';
+    ctx.font = '600 12px Inter, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(`F = ${fmt(l.F)} N`, x2, y2 - 4);
+  } else if (l.type === 'pulley') {
     // stand-alone pulley disc on a short bracket
     ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
     ctx.lineWidth = 2;
