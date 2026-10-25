@@ -7,6 +7,7 @@ const QUESTION = /\?\s*$|^(why|how|what|when|which|explain|does|did|is|are|can)\
 
 const SUGGESTIONS = [
   'Drop a bowling ball and a feather-light foam ball on the Moon',
+  'Two masses 5 kg and 3 kg hang over a smooth pulley. Find the acceleration and tension.',
   'Race an ice cube and a rubber block down a 30° ramp',
   'Five steel balls in a row, the first one launched at 6 m/s',
 ];
