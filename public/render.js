@@ -34,6 +34,7 @@ export class Renderer {
     this.hover = null;        // mouse position in px for the spawn ghost
     this.spawnPreview = null; // function returning a spec to preview, or null
     this.selectedId = null;   // spec id of the ramp being edited
+    this.showValues = false;  // label moving objects with their speed (PhET's "Values")
     this.trails = new Map();  // Matter body id -> [{x,y}]
     this.bursts = [];
     this.dust = [];  // cosmetic specks when something shatters (the real fragments are physics bodies)
@@ -203,6 +204,7 @@ export class Renderer {
       }
     }
 
+    if (this.showValues) this._drawValues(bodies);
     this._drawGhost();
     if (this.marker) {
       ctx.strokeStyle = ACCENT;
@@ -294,6 +296,24 @@ export class Renderer {
         ctx.lineTo(trail[i].x, trail[i].y);
         ctx.stroke();
       }
+    }
+  }
+
+  _drawValues(bodies) {
+    const { ctx } = this;
+    ctx.font = '600 12px Inter, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    for (const b of bodies) {
+      if (b.isStatic) continue;
+      const v = (Math.hypot(b.velocity.x, b.velocity.y) * 60) / PX_PER_M;
+      const text = `${v < 0.005 ? '0' : fmt(Math.round(v * 100) / 100)} m/s`;
+      const w = ctx.measureText(text).width + 10;
+      const x = b.position.x, y = b.bounds.min.y - 6;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+      ctx.fillRect(x - w / 2, y - 17, w, 17);
+      ctx.fillStyle = '#f2f2f2';
+      ctx.fillText(text, x, y - 2);
     }
   }
 

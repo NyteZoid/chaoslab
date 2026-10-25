@@ -406,12 +406,9 @@ const GRID_STEPS = [1, 0.5, 0.25, 2, 0];
 function syncViewbar() {
   $('vbZoom').textContent = `${Math.round(renderer.view.zoom * 100)}%`;
   $('vbGridLabel').textContent = renderer.gridStep ? `${renderer.gridStep} m` : 'Off';
-  $('vbPlay').querySelector('use').setAttribute('href', lab.paused ? '#i-play' : '#i-pause');
 }
 const zoomBy = (f) => { renderer.setZoom(renderer.view.zoom * f, { x: canvas.width / 2, y: canvas.height / 2 }); syncViewbar(); };
 const cycleGrid = () => { renderer.gridStep = GRID_STEPS[(GRID_STEPS.indexOf(renderer.gridStep) + 1) % GRID_STEPS.length]; syncViewbar(); };
-$('vbPlay').addEventListener('click', () => lab.setPaused(!lab.paused));
-$('vbRerun').addEventListener('click', () => lab.rerun('Rerun'));
 $('vbZoomIn').addEventListener('click', () => zoomBy(1.25));
 $('vbZoomOut').addEventListener('click', () => zoomBy(0.8));
 $('vbFit').addEventListener('click', () => { renderer.resetView(); syncViewbar(); });
@@ -425,6 +422,25 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'g' || e.key === 'G') cycleGrid();
   else if (e.key === 'Escape' && pending) cancelLink(TOOL_HINTS[tool]);
   else if (e.key === 'Enter' && pending) finishRope();
+});
+
+// ---------- time controls (PhET-style) ----------
+
+// Step: advance a paused simulation by 1/10 s so motion can be followed frame by frame.
+function stepOnce() {
+  if (!lab.paused) lab.setPaused(true);
+  for (let i = 0; i < 6; i++) Matter.Engine.update(lab.engine, 1000 / 60);
+}
+$('stepBtn').addEventListener('click', stepOnce);
+document.querySelectorAll('[data-speed]').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('[data-speed]').forEach((x) => x.classList.toggle('active', x === b));
+  lab.setWorld({ timeScale: Number(b.dataset.speed) }, { silent: true });
+  worldControls.timeScale?.set(Number(b.dataset.speed));
+}));
+$('values').addEventListener('change', (e) => { renderer.showValues = e.target.checked; });
+document.addEventListener('keydown', (e) => {
+  if (e.target.matches?.('input, textarea, select')) return;
+  if (e.key === '.') stepOnce();
 });
 
 // ---------- history drawer ----------

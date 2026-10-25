@@ -2,6 +2,13 @@
 
 All notable changes to ChaosLab. Newest first.
 
+## 0.9.1 (2026-10-25): UI polish inspired by PhET and Algodoo
+
+- Vertical tool rail beside the canvas, grouped into Objects, Mechanics and Move (Algodoo-style).
+- PhET-style time controls under the canvas: rerun, large play/pause, step forward 1/10 s, Normal/Slow speed.
+- Values switch labels every moving object with its speed.
+- Apparatus and Telemetry panels can be collapsed.
+
 ## 0.9.0 (2026-10-25): Varied mazes, easier building, tested on JEE problems
 
 - Mazes differ on every build (seeded layouts) and have a complexity setting: uneven ramp lengths and slopes, and holes the ball drops through. A maze where the ball would get stuck is rebuilt automatically; 36/36 random mazes tested reach the bottom.
