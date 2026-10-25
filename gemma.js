@@ -89,7 +89,7 @@ const RAMP = {
     name: { type: 'string', description: 'short id such as "A", used by groups to refer to this ramp' },
     side: SIDE,
     direction: { type: 'string', enum: ['down_right', 'down_left'], description: 'which way it slopes down' },
-    angle: { type: 'number', description: 'steepness in degrees, 5 to 60' },
+    angle: { type: 'number', description: 'steepness in degrees, 3 to 75. Use exactly the angle the user gives.' },
     length: { type: 'number', description: 'metres, 2 to 8' },
     top_height: { type: 'number', description: 'height of the high end above the floor, metres (0.5 to 5.5)' },
   },
@@ -109,7 +109,7 @@ const STRUCTURE = {
     side: SIDE,
     levels: { type: 'integer', description: 'ramp_path: number of ramps, 2 to 7' },
     steps: { type: 'integer', description: 'staircase: number of steps, 2 to 10' },
-    angle: { type: 'number', description: 'ramp_path: slope of each ramp in degrees (8 to 35, default 15)' },
+    angle: { type: 'number', description: 'ramp_path: slope of each ramp in degrees (5 to 45, default 15). Use exactly the angle the user gives.' },
     top_height: { type: 'number', description: 'height of the top in metres' },
     height: { type: 'number', description: 'wall or cup height, or funnel height above the floor, metres' },
     width: { type: 'number', description: 'metres' },
@@ -204,6 +204,8 @@ const BUILD_TOOLS = [
               speed: { type: 'number' },
               direction: { type: 'string' },
               breakable: { type: 'boolean' },
+              angle: { type: 'number', description: 'ramps only: new slope in degrees, positive rises to the right, negative falls to the right' },
+              length: { type: 'number', description: 'ramps only: new length in metres' },
             },
             required: ['id'],
           },
@@ -238,6 +240,7 @@ Examples (arguments for build_scene):
 Rules:
 - Start with checklist: one line per ramp and per kind of object the user asked for. Then make exactly one ramp or group per line.
 - Include every object the user asked for and nothing else. One group per distinct kind of object; never repeat a group.
+- Use exactly the angles, heights, speeds and counts the user gives. To change an existing ramp's angle or length, use edit_scene update with its id.
 - Anything with several connected ramps (path, track, maze, zigzag, marble run) is ONE ramp_path structure, never separate ramps.
 - Give every group a side unless it is placed on or at a ramp. Things that move toward each other start on opposite sides.
 - Use build_scene for a new experiment. Use edit_scene when the request refers to the current scene ("it", "the ball", "didn't", "make it", "more", "again", "faster"): the current scene, the previous requests and what happened in the last run are given, so fix the actual problem.

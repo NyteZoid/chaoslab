@@ -168,6 +168,46 @@ export class Lab {
     return s.id;
   }
 
+  spec(id) { return this.bodies.find((s) => s.id === id) || null; }
+
+  // Change a fixed piece (ramp, wall) in place without restarting the run, e.g. while dragging
+  // its angle slider. Returns the updated spec.
+  patchFixed(id, patch) {
+    const i = this.bodies.findIndex((s) => s.id === id);
+    if (i < 0 || !this.bodies[i].static) return null;
+    const next = normalizeSpec({ ...this.bodies[i], ...patch, id });
+    this.bodies[i] = next;
+    for (const body of this.allBodies()) {
+      if (body.plugin.specId === id) Composite.remove(this.engine.world, body);
+    }
+    this._spawn(next);
+    return next;
+  }
+
+  // After a ramp turns or changes length, objects that were resting on it keep their place on its
+  // surface (same distance along it, same height above it) instead of being left in mid-air or inside it.
+  carryRiders(before, after) {
+    const frame = (p) => {
+      const a = (p.angle * Math.PI) / 180;
+      return { c: { x: p.x, y: p.y }, dir: { x: Math.cos(a), y: Math.sin(a) }, nrm: { x: -Math.sin(a), y: Math.cos(a) } };
+    };
+    const f0 = frame(before), f1 = frame(after);
+    let moved = 0;
+    for (const s of this.bodies) {
+      if (s.static) continue;
+      const dx = s.x - f0.c.x, dy = s.y - f0.c.y;
+      const u = dx * f0.dir.x + dy * f0.dir.y;  // distance along the old ramp
+      const v = dx * f0.nrm.x + dy * f0.nrm.y;  // height above its centre line
+      const reach = (s.shape === 'ball' ? s.size : s.size * 0.71) + before.size / 2 + 0.35;
+      if (Math.abs(u) > before.length / 2 || v < 0 || v > reach) continue;
+      const uu = Math.max(-after.length / 2, Math.min(after.length / 2, u));
+      s.x = Math.round((f1.c.x + uu * f1.dir.x + v * f1.nrm.x) * 1000) / 1000;
+      s.y = Math.round((f1.c.y + uu * f1.dir.y + v * f1.nrm.y) * 1000) / 1000;
+      moved++;
+    }
+    return moved;
+  }
+
   removeBody(id) {
     const i = this.bodies.findIndex((b) => b.id === id);
     if (i < 0) return false;

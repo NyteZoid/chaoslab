@@ -77,7 +77,7 @@ function rampPath(s) {
   const reach = 0.5;            // how far each lower ramp extends past the end of the one above
   const drop = Math.max(0.15, (top - 0.35 - (levels - 1) * gap) / levels);
   // keep the slope steep enough to roll briskly: narrow the path rather than flatten the ramps
-  const slope = clamp(num(s.angle, 15), 8, 35);
+  const slope = clamp(num(s.angle, 15), 5, 45);
   const span = clamp(drop / Math.tan(slope * DEG), 1.6, Math.min(num(s.width, 10), 10));
   const [x0, x1] = zoneSpan(s, span);
   const startRight = s.first_direction !== 'down_left';
@@ -323,6 +323,10 @@ function applyPromptHints(plan, prompt) {
   const angle = text.match(/(-?\d+(?:\.\d+)?)\s*(?:°|deg|degrees?)\b/);
   const height = text.match(/(?:from|at|height of)\s*(\d+(?:\.\d+)?)\s*(?:m|metres?|meters?)\b/);
   const wantsBreaking = /shatter|break|smash|fragile|crack|crush/.test(text);
+  // "a 32 degree ramp": make sure ramps and paths use the stated angle
+  const mentionsRamp = /ramp|slope|incline|path|track/.test(text);
+  const ramps = (plan.ramps || []).map((r) => (mentionsRamp && angle && r.angle == null ? { ...r, angle: Math.abs(Number(angle[1])) } : r));
+  const structures = (plan.structures || []).map((s) => (mentionsRamp && angle && s.type === 'ramp_path' && s.angle == null ? { ...s, angle: Math.abs(Number(angle[1])) } : s));
   const groups = (plan.groups || []).map((g) => {
     const out = { ...g };
     const moving = num(out.speed, 0) > 0;
@@ -333,7 +337,7 @@ function applyPromptHints(plan, prompt) {
   });
   const world = { ...(plan.world || {}) };
   if (Number(world.gravity) > 3) world.gravity = Number(world.gravity) / 9.81; // given in m/s² instead of multiples of g
-  return { ...plan, world, groups };
+  return { ...plan, world, ramps, structures, groups };
 }
 
 // Safety nets for sloppy plans: drop exact duplicate groups, and give every free-standing group

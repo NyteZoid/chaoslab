@@ -165,7 +165,12 @@ export class Assistant {
     scene.bodies = scene.bodies.filter((b) => !remove.has(b.id));
     for (const u of args.update || []) {
       const b = scene.bodies.find((x) => x.id === Number(u.id));
-      if (!b || b.shape === 'plank') continue;
+      if (!b) continue;
+      if (b.shape === 'plank') { // ramps: only their slope and length can change
+        if (u.angle != null) b.angle = Number(u.angle);
+        if (u.length != null) b.length = Number(u.length);
+        continue;
+      }
       for (const k of ['material', 'size', 'mass', 'breakable']) if (u[k] != null) b[k] = u[k];
       if ((u.material != null || u.size != null) && u.mass == null) delete b.mass; // let the material set the new mass
       if (u.material != null || u.size != null || u.mass != null) delete b.breakEnergy; // and the new threshold

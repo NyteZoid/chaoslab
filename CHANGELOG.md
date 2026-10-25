@@ -2,6 +2,13 @@
 
 All notable changes to ChaosLab. Newest first.
 
+## 0.5.0 (2026-10-25): Exact ramp angles, black and red theme
+
+- Click any ramp (including ones Gemma builds) to edit it: exact angle and length by slider or typed value, or delete it. Objects resting on it move with it.
+- Every ramp shows its angle on the canvas; the selected one is outlined.
+- Ramp tool angle range widened to ±80° with exact entry; Gemma can change existing ramps' angles and uses stated angles exactly.
+- New colour scheme: black background with red accents across the UI, canvas, chart and icons.
+
 ## 0.4.0 (2026-10-25): Gemma understands paths, mazes and follow-ups
 
 - Structures built exactly by code: ramp_path (connected zigzag marble run with bumper walls), staircase, wall, cup and funnel. Gemma names the structure; `layout.js` lines up every piece.

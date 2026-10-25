@@ -8,11 +8,12 @@ const DEPTH_SCALE = 0.4;      // cabinet-style foreshortening
 const SLAB_DEPTH = 110;       // px depth of the floor and ramps
 const LIGHT = norm({ x: -0.55, y: -0.85 }); // light from the top left
 
-const SURFACE = '#2b3447';    // fixed ramps
-const FLOOR_TOP = '#1a2131';
-const FLOOR_FRONT = '#0d121c';
-const GRID = 'rgba(150, 170, 210, 0.07)';
+const SURFACE = '#2a2a2a';    // fixed ramps
+const FLOOR_TOP = '#161616';
+const FLOOR_FRONT = '#0a0a0a';
+const GRID = 'rgba(239, 68, 68, 0.09)';
 const AMBER = '#f2b84b';
+const ACCENT = '#ef4444';
 
 const EFFECT_MIN_SPEED = 4;   // m/s
 const MAX_BURSTS = 6;
@@ -32,6 +33,7 @@ export class Renderer {
     this.effects = true;
     this.hover = null;        // mouse position in px for the spawn ghost
     this.spawnPreview = null; // function returning a spec to preview, or null
+    this.selectedId = null;   // spec id of the ramp being edited
     this.trails = new Map();  // Matter body id -> [{x,y}]
     this.bursts = [];
     this.dust = [];  // cosmetic specks when something shatters (the real fragments are physics bodies)
@@ -113,6 +115,7 @@ export class Renderer {
 
     const bodies = this.lab.allBodies().filter((b) => !b.plugin.wall && b.plugin.specId);
     for (const b of bodies) if (b.isStatic) drawSolid(ctx, b);
+    for (const b of bodies) if (b.isStatic) drawRampLabel(ctx, b, b.plugin.specId === this.selectedId);
     this._drawShadows(bodies);
     if (this.showTrails) this._drawTrails();
     for (const b of bodies) if (!b.isStatic) drawSolid(ctx, b);
@@ -140,13 +143,13 @@ export class Renderer {
     const o = FLOOR_OFF;
     // top face, receding from the contact line
     const top = ctx.createLinearGradient(0, FLOOR_PX + o.y, 0, FLOOR_PX);
-    top.addColorStop(0, '#121826');
+    top.addColorStop(0, '#0f0f0f');
     top.addColorStop(1, FLOOR_TOP);
     ctx.fillStyle = top;
     ctx.fillRect(0, FLOOR_PX + o.y, WIDTH, -o.y);
 
     // metre lines running into the depth, plus two depth bands
-    ctx.strokeStyle = 'rgba(150, 170, 210, 0.10)';
+    ctx.strokeStyle = 'rgba(239, 68, 68, 0.14)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let x = 0; x <= WIDTH; x += PX_PER_M) {
@@ -161,15 +164,15 @@ export class Renderer {
 
     // front face
     const front = ctx.createLinearGradient(0, FLOOR_PX, 0, HEIGHT);
-    front.addColorStop(0, '#141b29');
+    front.addColorStop(0, '#141414');
     front.addColorStop(1, FLOOR_FRONT);
     ctx.fillStyle = front;
     ctx.fillRect(0, FLOOR_PX, WIDTH, HEIGHT - FLOOR_PX);
-    ctx.fillStyle = 'rgba(200, 215, 240, 0.35)';
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.7)';
     ctx.fillRect(0, FLOOR_PX, WIDTH, 1);
 
     // scale ticks along the front edge, one per metre
-    ctx.fillStyle = 'rgba(160, 175, 205, 0.45)';
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.6)';
     ctx.font = '500 11px Inter, system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
@@ -216,7 +219,7 @@ export class Renderer {
     const { ctx } = this;
     const s = this.spawnPreview();
     const p = this.hover;
-    const color = s.shape === 'plank' ? '#c9d3e6' : materialOf(s.material).color;
+    const color = s.shape === 'plank' ? '#f2f2f2' : materialOf(s.material).color;
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.rotate((-(s.angle || 0) * Math.PI) / 180);
@@ -305,7 +308,7 @@ function drawSolid(ctx, body) {
   for (let i = 1; i < v.length; i++) ctx.lineTo(v[i].x, v[i].y);
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = fixed ? 'rgba(210, 222, 245, 0.35)' : rgba(shade(base, -0.5), 0.9);
+  ctx.strokeStyle = fixed ? 'rgba(239, 68, 68, 0.55)' : rgba(shade(base, -0.5), 0.9);
   ctx.lineWidth = 1;
   ctx.stroke();
 
@@ -316,6 +319,38 @@ function drawSolid(ctx, body) {
     ctx.restore();
     label(ctx, body, Math.sqrt(body.area) / 2, base);
   }
+}
+
+// Every ramp shows its slope; the selected one is outlined.
+function drawRampLabel(ctx, body, selected) {
+  if (selected) {
+    ctx.save();
+    ctx.strokeStyle = ACCENT;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    const v = body.vertices;
+    ctx.moveTo(v[0].x, v[0].y);
+    for (let i = 1; i < v.length; i++) ctx.lineTo(v[i].x, v[i].y);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.restore();
+  }
+  let deg = (((body.angle * 180) / Math.PI) % 180 + 180) % 180; // 0..180
+  if (deg > 90) deg -= 180;
+  const slope = Math.abs(deg);
+  if (slope >= 85) return; // walls: the angle is not interesting
+  const rounded = Math.round(slope * 10) / 10;
+  const text = `${Number.isInteger(rounded) ? rounded : rounded.toFixed(1)}°`;
+  ctx.font = '600 12px Inter, system-ui, sans-serif';
+  const w = ctx.measureText(text).width + 10;
+  const x = body.position.x, y = body.bounds.min.y - 12;
+  ctx.fillStyle = selected ? ACCENT : 'rgba(0, 0, 0, 0.7)';
+  ctx.fillRect(x - w / 2, y - 9, w, 18);
+  ctx.fillStyle = selected ? '#0a0000' : '#f2f2f2';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, x, y);
 }
 
 function drawSphere(ctx, body) {
@@ -435,13 +470,13 @@ function makeBackdrop() {
   c.height = HEIGHT;
   const ctx = c.getContext('2d');
   const sky = ctx.createLinearGradient(0, 0, 0, FLOOR_PX);
-  sky.addColorStop(0, '#03050a');
-  sky.addColorStop(1, '#070b14');
+  sky.addColorStop(0, '#000000');
+  sky.addColorStop(1, '#050505');
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
   // faint dust clouds for depth
-  for (const [x, y, r, color] of [[880, 160, 420, 'rgba(40, 70, 120, 0.10)'], [260, 420, 360, 'rgba(30, 95, 110, 0.06)']]) {
+  for (const [x, y, r, color] of [[880, 160, 420, 'rgba(130, 20, 20, 0.10)'], [260, 420, 360, 'rgba(90, 10, 10, 0.08)']]) {
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);
     g.addColorStop(0, color);
     g.addColorStop(1, 'rgba(0, 0, 0, 0)');
@@ -453,7 +488,7 @@ function makeBackdrop() {
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   for (let i = 0; i < 260; i++) {
     const big = rnd() < 0.06;
-    ctx.fillStyle = rnd() < 0.3 ? `rgba(190, 210, 255, ${0.2 + rnd() * 0.5})` : `rgba(255, 255, 255, ${0.15 + rnd() * (big ? 0.7 : 0.4)})`;
+    ctx.fillStyle = rnd() < 0.3 ? `rgba(255, 200, 200, ${0.2 + rnd() * 0.5})` : `rgba(255, 255, 255, ${0.15 + rnd() * (big ? 0.7 : 0.4)})`;
     ctx.beginPath();
     ctx.arc(rnd() * WIDTH, rnd() * FLOOR_PX, big ? 1 + rnd() * 0.6 : 0.3 + rnd() * 0.6, 0, Math.PI * 2);
     ctx.fill();

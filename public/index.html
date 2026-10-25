@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ChaosLab · Physics sandbox</title>
   <meta name="description" content="ChaosLab is a browser physics sandbox. Drop balls, boxes and ramps, pick their material, change gravity or friction, and compare every run against the last with recorded energy, speed and collision data.">
-  <meta name="theme-color" content="#070a10">
+  <meta name="theme-color" content="#000000">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <meta property="og:type" content="website">
   <meta property="og:title" content="ChaosLab · Physics sandbox">
@@ -73,7 +73,7 @@
           <label class="switch"><input type="checkbox" id="sound" checked><span></span>Sound</label>
         </div>
       </div>
-      <p class="hint">Click the canvas to drop the selected object. Right-click an object to delete it. Space pauses, R reruns.</p>
+      <p class="hint">Click the canvas to drop the selected object. Click a ramp to change its exact angle or length. Right-click an object to delete it. Space pauses, R reruns.</p>
 
       <section class="card runs-card">
         <div class="card-head">
@@ -104,6 +104,15 @@
         <div class="chips" id="gemmaChips"></div>
         <p class="ask-status" id="gemmaStatus" role="status" aria-live="polite"></p>
         <div class="answer" id="gemmaResult" aria-live="polite" hidden></div>
+      </section>
+
+      <section class="card" id="rampCard" hidden aria-labelledby="rampTitle">
+        <div class="card-head">
+          <h2 class="overline" id="rampTitle">Selected ramp</h2>
+          <button class="btn btn-ghost btn-sm" type="button" id="rampClose">Done</button>
+        </div>
+        <div class="sliders" id="rampSliders"></div>
+        <button class="btn btn-ghost btn-sm btn-danger" type="button" id="rampDelete">Delete ramp</button>
       </section>
 
       <section class="card">

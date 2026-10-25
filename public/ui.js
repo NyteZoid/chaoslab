@@ -41,8 +41,8 @@ const SPAWN_SLIDERS = [
   { key: 'vx', label: 'Launch speed →', min: -15, max: 15, step: 0.5, unit: 'm/s', value: 0, hide: 'plank' },
   { key: 'vy', label: 'Launch speed ↑', min: -15, max: 15, step: 0.5, unit: 'm/s', value: 0, hide: 'plank' },
   { key: 'breakEnergy', label: 'Breaks above', min: 0, max: 100, step: 0.5, unit: 'J', value: 50, map: energyFromSlider, breaks: true },
-  { key: 'angle', label: 'Ramp angle', min: -60, max: 60, step: 1, unit: '°', value: -20, only: 'plank' },
-  { key: 'length', label: 'Ramp length', min: 1, max: 8, step: 0.1, unit: 'm', value: 3, only: 'plank' },
+  { key: 'angle', label: 'Ramp angle (+ rises to the right)', min: -80, max: 80, step: 0.5, unit: '°', value: -20, only: 'plank', exact: true },
+  { key: 'length', label: 'Ramp length', min: 0.5, max: 11, step: 0.1, unit: 'm', value: 3, only: 'plank', exact: true },
 ];
 
 const spawn = { material: DEFAULT_MATERIAL, massAuto: true, breakable: false, breakAuto: true };
@@ -55,10 +55,14 @@ function makeSlider(container, def, initial, onInput, onChange) {
   if (def.only) row.dataset.only = def.only;
   if (def.hide) row.dataset.hide = def.hide;
   if (def.breaks) row.dataset.breaks = '';
-  row.innerHTML = `<span>${def.label}</span><output></output>
-    <input type="range" min="${def.min}" max="${def.max}" step="${def.step}">`;
-  const input = row.querySelector('input');
-  const out = row.querySelector('output');
+  row.innerHTML = def.exact
+    ? `<span>${def.label}</span><span class="exact"><input type="number" min="${def.min}" max="${def.max}" step="${def.step}" aria-label="${def.label} exact value">${def.unit}</span>
+       <input type="range" min="${def.min}" max="${def.max}" step="${def.step}">`
+    : `<span>${def.label}</span><output></output>
+       <input type="range" min="${def.min}" max="${def.max}" step="${def.step}">`;
+  const input = row.querySelector('input[type=range]');
+  const out = row.querySelector('output') || { set innerHTML(_) {} };
+  const exactBox = row.querySelector('input[type=number]');
   let suffix = '';
   const show = () => {
     const v = def.map ? def.map(+input.value) : +input.value;
@@ -67,11 +71,24 @@ function makeSlider(container, def, initial, onInput, onChange) {
   };
   input.value = initial;
   show();
-  input.addEventListener('input', () => onInput(show()));
+  const syncExact = () => { if (exactBox && document.activeElement !== exactBox) exactBox.value = input.value; };
+  syncExact();
+  input.addEventListener('input', () => { syncExact(); onInput(show()); });
   if (onChange) input.addEventListener('change', () => onChange(show()));
+  if (exactBox) {
+    // typed values can be finer than the slider and are committed on Enter or blur
+    exactBox.addEventListener('change', () => {
+      const v = Math.min(def.max, Math.max(def.min, Number(exactBox.value)));
+      if (!Number.isFinite(v)) return;
+      exactBox.value = v;
+      input.value = v;
+      onInput(v);
+      if (onChange) onChange(v);
+    });
+  }
   container.appendChild(row);
   return {
-    set: (v) => { input.value = v; show(); },
+    set: (v) => { input.value = v; if (exactBox) exactBox.value = v; show(); },
     setSuffix: (s) => { suffix = s; show(); },
   };
 }
@@ -196,8 +213,14 @@ function canvasPoint(e) {
 }
 
 canvas.addEventListener('pointerdown', (e) => {
-  if (e.button !== 0 || tool === 'grab') return;
+  if (e.button !== 0) return;
   const p = canvasPoint(e);
+  // clicking a ramp or wall selects it for editing instead of dropping something on it
+  const hitId = lab.specAtPoint(p.x, p.y);
+  const hit = hitId && lab.spec(hitId);
+  if (hit && hit.static) { selectFixed(hit.id); return; }
+  selectFixed(null);
+  if (tool === 'grab') return;
   const m = toM(p.x, p.y);
   if (m.y <= 0) return;
   lab.addBody({ shape: tool, x: m.x, y: m.y, ...spawnSpec() });
@@ -210,6 +233,56 @@ canvas.addEventListener('contextmenu', (e) => {
   const id = lab.specAtPoint(p.x, p.y);
   if (id) lab.removeBody(id);
 });
+
+// ---------- selected ramp ----------
+
+let selectedId = null;
+let selectedBefore = null;
+const RAMP_EDIT = [
+  { key: 'angle', label: 'Angle (+ rises to the right)', min: -90, max: 90, step: 0.5, unit: '°', exact: true },
+  { key: 'length', label: 'Length', min: 0.3, max: 12, step: 0.1, unit: 'm', exact: true },
+];
+const rampControls = {};
+for (const def of RAMP_EDIT) {
+  rampControls[def.key] = makeSlider($('rampSliders'), def, 0,
+    (v) => { if (selectedId) lab.patchFixed(selectedId, { [def.key]: v }); },
+    () => commitFixedChange());
+}
+
+function selectFixed(id) {
+  selectedId = id;
+  renderer.selectedId = id;
+  const spec = id && lab.spec(id);
+  $('rampCard').hidden = !spec;
+  if (!spec) return;
+  selectedBefore = { ...spec };
+  $('rampTitle').textContent = spec.name ? `Ramp ${spec.name}` : `${Math.abs(spec.angle) >= 85 ? 'Wall' : 'Ramp'} #${spec.id}`;
+  rampControls.angle.set(spec.angle);
+  rampControls.length.set(spec.length);
+}
+
+// Releasing an angle or length change is one experiment step, like a world slider.
+function commitFixedChange() {
+  const spec = selectedId && lab.spec(selectedId);
+  if (!spec || !selectedBefore) return;
+  const changes = ['angle', 'length']
+    .filter((k) => spec[k] !== selectedBefore[k])
+    .map((k) => `${k} ${fmt(selectedBefore[k])}${k === 'angle' ? '°' : ' m'} → ${fmt(spec[k])}${k === 'angle' ? '°' : ' m'}`);
+  if (!changes.length) return;
+  lab.carryRiders(selectedBefore, spec);
+  selectedBefore = { ...spec };
+  const reason = `${$('rampTitle').textContent} ${changes.join(', ')}`;
+  if ($('autoRerun').checked) {
+    lab.rerun(reason);
+    lab.resolveOverlaps(reason); // a steeper ramp can swing up into objects resting on it
+  } else {
+    lab.emit('change', { t: lab.time, reason });
+  }
+}
+
+$('rampClose').addEventListener('click', () => selectFixed(null));
+$('rampDelete').addEventListener('click', () => { if (selectedId) { lab.removeBody(selectedId); selectFixed(null); } });
+lab.on('reset', () => { if (selectedId && !lab.spec(selectedId)) selectFixed(null); });
 
 // ---------- top bar & switches ----------
 
@@ -346,8 +419,8 @@ function drawChart() {
   const Y = (v) => H - pad.b - ((v - yMin) / (yMax - yMin)) * (H - pad.t - pad.b);
 
   cctx.font = '500 24px Inter, system-ui, sans-serif';
-  cctx.fillStyle = '#8f9ab0';
-  cctx.strokeStyle = 'rgba(143, 154, 176, 0.15)';
+  cctx.fillStyle = '#a3a3a3';
+  cctx.strokeStyle = 'rgba(163, 163, 163, 0.15)';
   cctx.lineWidth = 1;
   for (let i = 0; i <= 3; i++) {
     const v = yMin + ((yMax - yMin) * i) / 3;
@@ -378,8 +451,8 @@ function drawChart() {
     cctx.stroke();
     cctx.setLineDash([]);
   };
-  line(base, '#6b7790', [8, 6]);
-  line(cur, '#3fc1b0', []);
+  line(base, '#737373', [8, 6]);
+  line(cur, '#ef4444', []);
 }
 
 function escapeHtml(s) {
