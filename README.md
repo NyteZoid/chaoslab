@@ -95,10 +95,11 @@ All use `thinkingConfig.thinkingLevel = "minimal"` for speed. If the Gemini API 
 | Explanations | Structured JSON output + image input (canvas screenshot) | [`gemma.js`](gemma.js), [`public/assistant.js`](public/assistant.js) |
 | Offline mode | Open weights (`gemma4:e4b`) via Ollama | [`gemma.js`](gemma.js) |
 
-Two design choices make the model reliable:
+Three design choices make the model reliable:
 
 1. **Gemma describes, code computes.** Language models are poor at coordinate maths, so Gemma never writes positions. It describes groups ("3 wooden boxes, stack, bottom of ramp A") and [`layout.js`](public/layout.js) works out exact positions. A required `checklist` argument, written first, makes the model list every requested object before describing it, which stops it dropping objects.
-2. **Explanations only use measured data.** The prompt includes per-object outcomes (peak speed, bounce heights, impact energy, whether it shattered) and the physics rules the simulation uses, and forbids inventing numbers.
+2. **Grounded in solved examples and real data.** Each request carries the most similar solved problems from [`data/examples.json`](data/examples.json); if a number from the problem goes unused, Gemma is asked once more; and planets and moons use surface gravity and air density from NASA fact sheets.
+3. **Explanations only use measured data.** The prompt includes per-object outcomes (peak speed, bounce heights, impact energy, whether it shattered) and the physics rules the simulation uses, and forbids inventing numbers.
 
 ## Run it locally
 
@@ -168,7 +169,8 @@ public/
 - [Ollama](https://ollama.com/) (MIT), optional, runs Gemma 4 E4B locally.
 - [Inter](https://fonts.google.com/specimen/Inter) and [Space Grotesk](https://fonts.google.com/specimen/Space+Grotesk) fonts via Google Fonts (SIL Open Font License).
 - Node.js built-in modules only on the server; no other npm dependencies.
-- No datasets are used.
+- [NASA planetary fact sheets](https://nssdc.gsfc.nasa.gov/planetary/factsheet/) (public domain) for surface gravity and air density.
+- No other datasets are used; the solved examples in `data/examples.json` were written by us.
 
 ## AI coding tools used
 

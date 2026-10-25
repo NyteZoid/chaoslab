@@ -2,6 +2,12 @@
 
 All notable changes to ChaosLab. Newest first.
 
+## 0.11.0 (2026-10-25): Grounded scene building
+
+- Gemma is shown the solved problems most similar to each request (data/examples.json, 19 worked mappings), so new wordings map like known ones.
+- If Gemma leaves numbers from the problem unused, it is asked once more and the answer that uses more of the problem is kept (e.g. a dropped 24 N push is recovered).
+- Planets and moons use real surface gravity and air density from NASA fact sheets (Mercury to Pluto, Titan, Europa, Io, Ganymede, Callisto).
+
 ## 0.10.0 (2026-10-25): Newton's-laws problems
 
 - New apparatus from the NLM question bank: block pushed or pulled by a force at any angle with friction (normal force N = mg − F sin θ), or sliding to a stop; two blocks in contact pushed together. Textbook predictions match the simulation exactly in tests (e.g. 0.77, 0.11, 2.98, 3.92, 1.55 m/s²).

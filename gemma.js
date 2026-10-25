@@ -351,6 +351,8 @@ async function build({ prompt, scene, image, provider, history = [], outcome = n
   if (history.length) parts.push(`Previous requests in this session, oldest first:\n${history.slice(-3).map((h) => `- "${h.prompt}" -> ${h.result}`).join('\n')}`);
   if (outcome) parts.push(`What happened in the current run (measured):\n${JSON.stringify(outcome)}`);
   if (apparatus) parts.push(`Current apparatus (to change it, call build_scene with apparatus and only the changed values):\n${JSON.stringify(apparatus)}`);
+  const similar = similarExamples(prompt);
+  if (similar.length) parts.push(`Solved problems similar to this request (map it the same way when it is the same kind of setup):\n${similar.map((x) => `- "${x.text}" -> apparatus ${JSON.stringify(x.apparatus)}`).join('\n')}`);
   parts.push(`Request: ${prompt}`);
   const text = parts.join('\n\n');
   // Gemma sometimes loops, repeating groups until it runs out of tokens. Cap the output and the
@@ -368,6 +370,19 @@ async function build({ prompt, scene, image, provider, history = [], outcome = n
   }
   if (!out.call) throw new Error('Gemma did not return a scene. Try rephrasing the request.');
   normaliseApparatus(out.call.args);
+  // one more try when part of the problem was dropped, keeping whichever answer used more of it
+  // (only for a fresh problem: an edit such as "add 2 more pulleys" uses its numbers relatively)
+  const missing = apparatus ? [] : missingNumbers(prompt, out.call.args.apparatus);
+  if (missing.length && provider !== 'local') {
+    try {
+      const again = await gemini({ system: BUILD_SYSTEM, text: `${text}\n\nYour previous answer did not use these numbers from the problem: ${missing.join(', ')}. Put every number into the right key in apparatus.values.`, image, tools: BUILD_TOOLS, maxTokens: 600, timeoutMs: 18000, temperature: 0.2 });
+      if (again.call) {
+        normaliseApparatus(again.call.args);
+        if (again.call.args.apparatus && missingNumbers(prompt, again.call.args.apparatus).length < missing.length) out = { ...out, call: again.call, rechecked: true, ms: Date.now() - started };
+      }
+    } catch { /* keep the first answer */ }
+  }
+  applyCelestialBody(prompt, out.call.args);
   console.log(`[build] ${out.provider} ${out.ms} ms "${prompt}" -> ${out.call.name} ${JSON.stringify(out.call.args)}`);
   return out;
 }
@@ -385,6 +400,52 @@ function normaliseApparatus(args) {
   // the schema has no 'force' key (see APPARATUS), so the applied force arrives as effort
   if ((type === 'force_block' || type === 'contact_blocks') && values.effort !== undefined && values.force === undefined) { values.force = values.effort; delete values.effort; }
   args.apparatus = { type, values };
+}
+
+// ---------- grounding helpers ----------
+
+// Solved problems (data/examples.json). The two or three most similar to the request are sent
+// with it, so unusual wordings map like ones Gemma has already been shown. Plain word overlap is
+// enough here and costs no extra API call.
+const EXAMPLES = (() => {
+  try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'examples.json'), 'utf8')); } catch { return []; }
+})();
+const STOP = new Set('a an the of and or to on in at by is are be it its with from for find what how much if as that this then show me make'.split(' '));
+const words = (s) => new Set(String(s).toLowerCase().match(/[a-z]+/g)?.filter((w) => !STOP.has(w)) || []);
+function similarExamples(prompt, n = 3) {
+  const q = words(prompt);
+  if (!q.size) return [];
+  return EXAMPLES.map(([text, apparatus]) => {
+    const e = words(text);
+    let shared = 0;
+    for (const w of q) if (e.has(w)) shared++;
+    return { text, apparatus, score: shared / (q.size + e.size - shared) };
+  }).filter((x) => x.score >= 0.12).sort((a, b) => b.score - a.score).slice(0, n);
+}
+
+// Numbers in the problem that ended up nowhere in the apparatus values (allowing for g → kg and
+// cm → m). Used to ask Gemma once more when it drops part of the problem.
+function missingNumbers(prompt, apparatus) {
+  if (!apparatus || !apparatus.values) return [];
+  const given = (String(prompt).match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+  const used = Object.values(apparatus.values).filter((v) => typeof v === 'number');
+  const near = (a, b) => Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(a));
+  return given.filter((n) => n !== 0 && ![9.8, 9.81, 10].includes(Math.abs(n)) && !used.some((v) => near(v, n) || near(v * 1000, n) || near(v * 100, n) || near(Math.abs(v), Math.abs(n))));
+}
+
+// Surface gravity (m/s²) and air density (kg/m³) from NASA's planetary fact sheets, so "on Mars"
+// or "on Titan" use real values rather than whatever the model remembers.
+const BODIES = {
+  mercury: [3.7, 0], venus: [8.87, 10], moon: [1.62, 0], mars: [3.71, 0.02], jupiter: [24.79, null],
+  saturn: [10.44, null], uranus: [8.87, null], neptune: [11.15, null], pluto: [0.62, 0],
+  titan: [1.352, 5.4], europa: [1.315, 0], io: [1.796, 0], ganymede: [1.428, 0], callisto: [1.235, 0],
+};
+function applyCelestialBody(prompt, args) {
+  const named = Object.keys(BODIES).filter((b) => new RegExp(`\\b${b}\\b`, 'i').test(prompt));
+  if (named.length !== 1 || /\bearth\b/i.test(prompt)) return; // comparisons are left to Gemma
+  const [g, air] = BODIES[named[0]];
+  args.world = { ...(args.world || {}), gravity: Math.round((g / 9.81) * 1000) / 1000 };
+  if (air !== null) args.world.airDensity = air;
 }
 
 // A short, readable version of the scene so edits can refer to ids and ramp names.

@@ -1,0 +1,21 @@
+[
+  ["A block of mass 2 kg attached to a spring of force constant 200 N/m oscillates on a smooth horizontal surface. Find its time period.", {"type": "spring_mass", "values": {"mass": 2, "k": 200, "orientation": 0}}],
+  ["A 500 g mass hangs from a vertical spring of stiffness 50 N/m and is pulled down 5 cm and released.", {"type": "spring_mass", "values": {"mass": 0.5, "k": 50, "orientation": 1, "stretch": 0.05}}],
+  ["A simple pendulum of length 1 m is released from 10 degrees. Find its time period.", {"type": "pendulum", "values": {"length": 1, "angle": 10}}],
+  ["A bob of mass 200 g hangs from a 2.5 m string and is pulled aside by 60 degrees and released.", {"type": "pendulum", "values": {"length": 2.5, "angle": 60, "mass": 0.2}}],
+  ["Show me a double pendulum with arms of 1.5 m released at 90 degrees.", {"type": "pendulum", "values": {"length": 1.5, "angle": 90, "double": 1}}],
+  ["Two masses 5 kg and 3 kg are connected by a light inextensible string passing over a smooth pulley. Find the acceleration and tension.", {"type": "atwood", "values": {"m1": 5, "m2": 3}}],
+  ["A 10 kg block rests on a rough table (coefficient of friction 0.2) and is tied over a pulley to a 3 kg hanging mass. Will it move?", {"type": "table_pulley", "values": {"m1": 10, "m2": 3, "mu": 0.2}}],
+  ["Three blocks: 2 kg hangs on the left, 4 kg is on a table with friction 0.1, 6 kg hangs on the right, over two pulleys at the table edges.", {"type": "two_pulley_table", "values": {"m1": 2, "m2": 4, "m3": 6, "mu": 0.1}}],
+  ["make a 2 pulley 3 block system with masses 3 kg, 5 kg and 4 kg", {"type": "two_pulley_table", "values": {"m1": 3, "m2": 5, "m3": 4}}],
+  ["A 10 kg box is on a 45 degree frictionless ramp connected by a rope over a pulley to a hanging 4 kg weight.", {"type": "incline_pulley", "values": {"angle": 45, "m1": 10, "m2": 4, "mu": 0}}],
+  ["A 6 kg load hangs from a movable pulley and is balanced by a 2 kg mass on the other side over a fixed pulley.", {"type": "movable_pulley", "values": {"load": 6, "effort": 2}}],
+  ["A block and tackle with 4 pulleys lifts a 40 kg load using a 12 kg effort mass.", {"type": "pulley_system", "values": {"pulleys": 4, "load": 40, "effort": 12}}],
+  ["Two equal masses of 3 kg moving at 5 m/s and -5 m/s collide and stick together.", {"type": "collision_1d", "values": {"m1": 3, "m2": 3, "u1": 5, "u2": -5, "e": 0}}],
+  ["A ball is thrown at 20 m/s at 30 degrees from the top of a 15 m building.", {"type": "projectile", "values": {"speed": 20, "angle": 30, "height": 15}}],
+  ["A block slides down a 30 degree incline with coefficient of friction 0.2.", {"type": "incline_block", "values": {"angle": 30, "mu": 0.2}}],
+  ["A crate of mass 13 kg is pushed with 10 N on a frictionless floor. Find the acceleration.", {"type": "force_block", "values": {"mass": 13, "effort": 10, "mu": 0}}],
+  ["A 5 kg block on a table with mu 0.2 is pulled by 30 N at 30 degrees above horizontal.", {"type": "force_block", "values": {"mass": 5, "effort": 30, "angle": 30, "mu": 0.2}}],
+  ["A 2 kg block moving at 6 m/s on a rough floor (mu 0.3) slides to a stop. How far does it go?", {"type": "force_block", "values": {"mass": 2, "effort": 0, "speed": 6, "mu": 0.3}}],
+  ["Two blocks of 4 kg and 7 kg are in contact on a smooth floor. A 17 N force pushes the 4 kg block. Find the contact force.", {"type": "contact_blocks", "values": {"m1": 4, "m2": 7, "effort": 17, "mu": 0}}]
+]
