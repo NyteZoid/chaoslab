@@ -2,23 +2,51 @@
 
 **Describe a physics experiment in plain words. Gemma 4 builds it, the simulation runs it, and Gemma explains what happened using the numbers the simulation actually measured.**
 
-ChaosLab is a browser physics sandbox for experimenting without equations. Drop balls, boxes and ramps, pick what they are made of, change gravity, friction or air density, and rerun. Every run is recorded, so you can compare it with the previous one and ask *why* it changed
+ChaosLab is a browser physics sandbox for experimenting without equations. Drop balls, boxes and ramps, pick what they are made of, change gravity, friction or air density, and rerun. Every run is recorded, so you can compare it with the previous one and ask *why* it changed. For Class 11 and JEE students it also loads standard mechanics apparatus, from springs and pendulums to multi-pulley systems, and checks the textbook answer against the simulation.
 
 Built during **Hacktoberfest x MOSS Hack Day Udupi** (MIT Manipal, 25 October 2026, 10:00 AM to 5:00 PM IST) for the **Best Use of Gemma 4** and **Best Open-Source AI Project** challenges.
 
-![ChaosLab screenshot](public/og.png)
+![ChaosLab: tool rail, simulation canvas, Ask Gemma 4 panel and Class 11 apparatus panel](docs/screenshots/app.png)
+
+## Highlights
+
+| | |
+|---|---|
+| **Type a problem, get an experiment.** Gemma 4 turns plain sentences and JEE-style questions into scenes and apparatus through function calling. | **Textbook vs measured.** Every apparatus shows the textbook prediction next to the value measured live from the simulation. |
+| **13 Class 11 apparatus**, every parameter adjustable: springs, pendulums, Atwood, pulleys on tables and inclines, block and tackle, forces at an angle with friction, contact blocks, collisions, projectiles. | **Build your own mechanics.** Pulleys, ropes, springs and strings in any scene, draggable, with live coordinates. |
+| **Predict, then run.** Gemma designs a question where intuition fails; the physics decides the answer. | **Works offline.** Gemma 4 E4B on-device through Ollama, with automatic fallback when the cloud is busy. |
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Two pulleys, three blocks](docs/screenshots/apparatus-two_pulley_table.png) | ![Block on an incline tied over a pulley](docs/screenshots/apparatus-incline_pulley.png) |
+| Two pulleys, three blocks (m₁ and m₃ hanging, m₂ on a table with friction) | Block on an incline tied over a pulley to a hanging mass |
+| ![Block and tackle](docs/screenshots/apparatus-pulley_system.png) | ![Block pushed by a force at an angle](docs/screenshots/apparatus-force_block.png) |
+| Block and tackle with 2 to 6 pulleys | Block pushed or pulled by a force at an angle, with friction |
+| ![Pendulum](docs/screenshots/apparatus-pendulum.png) | ![Spring–block oscillator](docs/screenshots/apparatus-spring_mass.png) |
+| Single or double pendulum | Spring–block oscillator, vertical or horizontal |
+| ![Ball and box racing down 20° ramps](docs/screenshots/preset-ramp.png) | |
+| Rolling versus sliding down exact-angle ramps | |
 
 ## What it does
 
-- **Build scenes from text.** "Race an ice cube and a rubber block down two 30° ramps" becomes a running experiment through Gemma 4 function calling.
+- **Build scenes from text.** "Race an ice cube and a rubber block down two 30° ramps" or "make a complex maze" becomes a running experiment through Gemma 4 function calling. Mazes are different on every build and are checked by running the physics ahead, so the ball reaches the bottom.
+- **Solve JEE-style problems.** Paste a question such as "Two blocks of 4 kg and 7 kg are in contact on a smooth floor; a 17 N force pushes the 4 kg block" and Gemma loads the matching apparatus with the problem's numbers. Follow-ups like "add 2 more pulleys" or "make the load 15 kg" edit the current setup instead of starting over.
+- **Class 11 mechanics apparatus.** Spring–block, pendulum (single or double), Atwood machine, block pushed or pulled by a force at an angle with friction, two blocks in contact, block on a table or incline tied over a pulley, two pulleys with three blocks, movable pulley, block and tackle, 1D collision, projectile and block on an incline. Each shows the textbook prediction (acceleration, tension, period, range, normal force) next to the value measured live with a least-squares fit of the motion.
+- **Build your own mechanics.** A tool rail with Ball, Box, Ramp, Pulley, Rope, Spring, String and Grab. Ropes wrap around pulley discs and can go slack; springs follow Hooke's law with damping. Drag pulleys and anchors and see their coordinates live.
 - **Explanations grounded in data.** Gemma receives the measured telemetry of the current run (and the previous run when comparing) plus a screenshot of the canvas, then explains the result quoting real numbers, with a before/after table and a suggested next experiment.
-- **Real-feeling physics.** Six materials (rubber, wood, steel, ice, stone, foam) with their own friction, bounce, density and toughness; quadratic air drag; Coulomb friction; correct rolling.
-- **Breakable objects.** Objects shatter into fragments when one impact delivers more energy than their threshold (toughness × mass). Fragments are fully simulated and can break again.
-- **Predict-then-run challenges.** Gemma designs a scene and a question where intuition often fails; you guess, the simulation runs, and the correct answer is measured from the physics, not decided by the model. Gemma then explains why, taking your guess into account.
-- **Class 11 mechanics apparatus.** Spring–block, pendulum (single or double), Atwood machine, block on a table or incline tied over a pulley, movable pulley, 1D collision, projectile and block on an incline, with every parameter adjustable. Each shows the textbook prediction next to the value measured live from the simulation. Type a JEE-style problem into the Gemma panel and it loads the matching apparatus with the problem's numbers.
-- **Exact ramps.** Click any ramp to set its angle and length precisely; every ramp shows its angle.
-- **Compare runs.** Moving a slider reruns the scene from the same starting point and overlays the new run on the old one in the chart.
+- **Predict-then-run challenges.** Gemma designs a scene and a question; you guess, the simulation runs, and the correct answer is measured from the physics, not decided by the model. Gemma then explains why, taking your guess into account.
+- **Real-feeling physics.** Six materials (rubber, wood, steel, ice, stone, foam) with their own friction, bounce, density and toughness; quadratic air drag; Coulomb friction; correct rolling; textbook collision impulses.
+- **Breakable objects.** Objects shatter into simulated fragments when one impact delivers more energy than their threshold (toughness × mass).
+- **PhET-style controls.** Rerun, play/pause, step forward, normal or slow motion, zoom, grid spacing, speed labels on every object, and a history drawer of runs with a chart comparing them.
 - **Works offline.** Switch to *On-device* to run Gemma 4 E4B locally through Ollama. The cloud mode also falls back to it automatically when the free tier is rate-limited or unavailable.
+
+## How well it works
+
+- **Simulator vs textbook:** a built-in self-test ([`public/selftest.js`](public/selftest.js)) generates random JEE-style problems for every apparatus; 192 of 200 matched the textbook answer.
+- **Gemma vs real questions:** tested on 40 JEE-style wordings and on Newton's-laws questions from a practice set (pushed crates, contact blocks, angled pulls with friction, pulleys).
+- **Mazes:** 36 of 36 random mazes reach the bottom.
 
 ## Team
 
@@ -99,6 +127,7 @@ public/
   links.js           springs, rods and pulley ropes
   apparatus.js       Class 11 mechanics setups with textbook predictions
   apparatus-panel.js the Apparatus panel and live measurements
+  selftest.js        random JEE-style problems checked against textbook answers
   challenge.js       predict-then-run challenges
   assistant.js       the Ask Gemma panel
   materials.js       material properties
@@ -128,7 +157,7 @@ public/
 - [Ollama](https://ollama.com/) (MIT), optional, runs Gemma 4 E4B locally.
 - [Inter](https://fonts.google.com/specimen/Inter) and [Space Grotesk](https://fonts.google.com/specimen/Space+Grotesk) fonts via Google Fonts (SIL Open Font License).
 - Node.js built-in modules only on the server; no other npm dependencies.
-- No datasets are used
+- No datasets are used.
 
 ## AI coding tools used
 
